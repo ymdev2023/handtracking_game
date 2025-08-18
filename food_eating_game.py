@@ -80,7 +80,7 @@ info = pygame.display.Info()
 SCREEN_WIDTH = info.current_w
 SCREEN_HEIGHT = info.current_h
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
-pygame.display.set_caption("🍔 음식 먹기 게임 (ESC: 종료, F11: 전체화면 토글)")
+pygame.display.set_caption("음식 먹기 게임 (ESC: 종료, F11: 전체화면 토글)")
 
 # 색상 정의 (파스텔 컬러 추가)
 WHITE = (255, 255, 255)

@@ -21,64 +21,6 @@ class CameraManager:
         self.fps = 30
         self.is_mac = platform.system() == "Darwin"
         
-        # 라즈베리파이 특화 초기화
-        if not self.is_mac:
-            self.check_raspberry_pi_setup()
-        
-    def check_raspberry_pi_setup(self):
-        """라즈베리파이 카메라 설정 확인"""
-        print("🔍 라즈베리파이 카메라 설정 확인 중...")
-        
-        # 1. video 그룹 권한 확인
-        try:
-            import grp
-            import getpass
-            
-            username = getpass.getuser()
-            video_group = grp.getgrnam('video')
-            
-            if username in video_group.gr_mem:
-                print(f"✅ 사용자 '{username}'이 video 그룹에 속해 있음")
-            else:
-                print(f"⚠️ 사용자 '{username}'이 video 그룹에 속해 있지 않음")
-                print("   sudo usermod -a -G video $USER 명령어로 추가 후 재로그인하세요")
-                
-        except Exception as e:
-            print(f"⚠️ video 그룹 확인 실패: {e}")
-            
-        # 2. 카메라 모듈 활성화 확인
-        config_files = ['/boot/config.txt', '/boot/firmware/config.txt']
-        camera_enabled = False
-        
-        for config_file in config_files:
-            if os.path.exists(config_file):
-                try:
-                    with open(config_file, 'r') as f:
-                        content = f.read()
-                        if 'camera_auto_detect=1' in content or 'start_x=1' in content:
-                            camera_enabled = True
-                            print(f"✅ 카메라 모듈이 {config_file}에서 활성화됨")
-                            break
-                except Exception:
-                    pass
-                    
-        if not camera_enabled:
-            print("⚠️ 카메라 모듈이 비활성화된 것 같습니다.")
-            print("   sudo raspi-config에서 카메라를 활성화하고 재부팅하세요")
-            
-        # 3. 모듈 로드 확인
-        try:
-            result = subprocess.run(['lsmod'], capture_output=True, text=True, timeout=5)
-            modules = result.stdout
-            camera_modules = ['bcm2835_v4l2', 'ov5647', 'imx219', 'imx477']
-            
-            for module in camera_modules:
-                if module in modules:
-                    print(f"✅ 카메라 모듈 '{module}' 로드됨")
-                    
-        except Exception:
-            pass
-        
     def detect_arducam(self):
         """Arducam 모듈 감지"""
         if self.is_mac:
@@ -115,38 +57,14 @@ class CameraManager:
             return False  # macOS에서는 라즈베리파이 CSI 카메라 지원 안함
             
         try:
-            # 1. vcgencmd로 카메라 상태 확인
+            # vcgencmd로 카메라 상태 확인
             result = subprocess.run(['vcgencmd', 'get_camera'], 
                                   capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 output = result.stdout.strip()
                 if 'detected=1' in output:
-                    print("📷 라즈베리파이 CSI 카메라 감지됨 (vcgencmd)")
                     return True
                     
-            # 2. /proc/device-tree 확인
-            dt_paths = [
-                "/proc/device-tree/soc/csi@7e800000",
-                "/proc/device-tree/soc/i2c@7e804000/ov5647@36",
-                "/proc/device-tree/soc/i2c@7e804000/imx219@10"
-            ]
-            for path in dt_paths:
-                if os.path.exists(path):
-                    print(f"📷 라즈베리파이 카메라 하드웨어 감지됨: {path}")
-                    return True
-                    
-            # 3. dmesg에서 카메라 관련 로그 확인
-            try:
-                result = subprocess.run(['dmesg'], capture_output=True, text=True, timeout=10)
-                dmesg_output = result.stdout.lower()
-                camera_keywords = ['ov5647', 'imx219', 'imx477', 'imx708', 'csi', 'camera']
-                for keyword in camera_keywords:
-                    if keyword in dmesg_output:
-                        print(f"📷 라즈베리파이 카메라 감지됨 (dmesg): {keyword}")
-                        return True
-            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-                pass
-                        
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             pass
             
@@ -167,62 +85,25 @@ class CameraManager:
                         devices.append(i)
         else:
             # Linux/라즈베리파이에서는 더 세밀한 검색
-            print("🐧 Linux/라즈베리파이 카메라 장치 검색...")
             
-            # 1. /dev/video* 파일 확인
-            video_devices = []
-            for i in range(20):  # 0-19까지 확장 검색
+            # /dev/video* 파일 확인
+            for i in range(10):
                 video_path = f"/dev/video{i}"
                 if os.path.exists(video_path):
-                    # 장치 권한 확인
-                    if os.access(video_path, os.R_OK | os.W_OK):
-                        video_devices.append(i)
-                        print(f"✅ 비디오 장치 {video_path} 발견 (권한 OK)")
-                    else:
-                        print(f"⚠️ 비디오 장치 {video_path} 발견했지만 권한 없음")
-                        
-            devices.extend(video_devices)
-            
-            # 2. v4l2-ctl로 상세 정보 확인 (있는 경우)
-            try:
-                result = subprocess.run(['v4l2-ctl', '--list-devices'], 
-                                      capture_output=True, text=True, timeout=10)
-                if result.returncode == 0:
-                    print("📹 v4l2 장치 목록:")
-                    print(result.stdout)
-            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-                print("⚠️ v4l2-ctl 명령어 없음 (선택사항)")
-                
-            # 3. lsusb 명령으로 USB 카메라 확인
+                    devices.append(i)
+                    
+            # lsusb 명령으로 USB 카메라 확인 (Linux만)
             try:
                 result = subprocess.run(['lsusb'], capture_output=True, text=True, timeout=5)
                 usb_devices = result.stdout.lower()
-                camera_keywords = ['camera', 'webcam', 'video', 'uvc', 'capture']
-                found_usb_camera = False
-                for keyword in camera_keywords:
-                    if keyword in usb_devices:
-                        found_usb_camera = True
-                        break
-                        
-                if found_usb_camera:
-                    print("🔍 USB 카메라 장치 감지됨")
-                else:
-                    print("⚠️ USB 카메라 미감지")
+                if 'camera' in usb_devices or 'webcam' in usb_devices or 'video' in usb_devices:
+                    pass  # USB 카메라 감지됨
             except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-                print("⚠️ lsusb 명령어 실행 실패")
+                pass
                 
-            # 4. 라즈베리파이 특화 감지
-            if self.detect_raspberry_pi_camera():
-                # CSI 카메라가 감지되면 device 0을 최우선으로
-                if 0 not in devices:
-                    devices.insert(0, 0)
-                    print("📷 라즈베리파이 CSI 카메라 우선 설정")
-                    
         if not devices:
-            print("⚠️ 카메라 장치를 찾을 수 없음 - 기본값 [0] 사용")
-            devices = [0]
+            devices = [0]  # 기본값 사용
             
-        print(f"📱 총 {len(devices)}개 카메라 장치 발견: {devices}")
         return devices
         
     def test_camera_device(self, device_index):
@@ -276,58 +157,18 @@ class CameraManager:
     def initialize_standard_camera(self, device_index=0):
         """표준 카메라 초기화"""
         try:
-            # 라즈베리파이에서는 다양한 백엔드 시도
-            if not self.is_mac:
-                backends = [
-                    cv2.CAP_V4L2,     # Video4Linux2 (라즈베리파이 기본)
-                    cv2.CAP_GSTREAMER, # GStreamer (라즈베리파이 CSI 카메라)
-                    cv2.CAP_ANY        # 자동 선택
-                ]
+            cap = cv2.VideoCapture(device_index)
+            
+            if cap.isOpened():
+                # 기본 설정
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+                cap.set(cv2.CAP_PROP_FPS, self.fps)
                 
-                for backend in backends:
-                    try:
-                        print(f"🔧 백엔드 {backend} 시도 중...")
-                        cap = cv2.VideoCapture(device_index, backend)
-                        
-                        if cap.isOpened():
-                            # 기본 설정 적용
-                            cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-                            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-                            cap.set(cv2.CAP_PROP_FPS, self.fps)
-                            
-                            # 라즈베리파이 특화 설정
-                            if backend == cv2.CAP_V4L2:
-                                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 버퍼 크기 최소화
-                                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
-                            
-                            # 테스트 프레임 읽기
-                            ret, frame = cap.read()
-                            if ret and frame is not None:
-                                print(f"✅ 백엔드 {backend} 성공!")
-                                return cap
-                            else:
-                                cap.release()
-                                print(f"❌ 백엔드 {backend} 프레임 읽기 실패")
-                        else:
-                            print(f"❌ 백엔드 {backend} 열기 실패")
-                            
-                    except Exception as e:
-                        print(f"❌ 백엔드 {backend} 오류: {e}")
-                        continue
-            else:
-                # macOS에서는 기본 방식
-                cap = cv2.VideoCapture(device_index)
+                return cap
                 
-                if cap.isOpened():
-                    # 기본 설정
-                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-                    cap.set(cv2.CAP_PROP_FPS, self.fps)
-                    
-                    return cap
-                
-        except Exception as e:
-            print(f"❌ 카메라 초기화 오류: {e}")
+        except Exception:
+            pass
             
         return None
         
