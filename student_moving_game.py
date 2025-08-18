@@ -8,6 +8,12 @@ import math
 import json
 import pygame
 
+# MediaPipe 로그 레벨 설정 (경고 메시지 숨기기)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import logging
+logging.getLogger('mediapipe').setLevel(logging.ERROR)
+logging.getLogger('absl').setLevel(logging.ERROR)
+
 # PIL/Pillow import with fallback
 try:
     from PIL import Image, ImageFont, ImageDraw
@@ -464,9 +470,9 @@ class HandTrackingPixelPhotobooth:
             
             # 디버그 정보 저장 (화면 표시용)
             if satisfied_conditions >= 5:
-                self.heart_debug_info = f"💖 하트 감지됨! ({satisfied_conditions}/8)"
+                self.heart_debug_info = f"하트 감지됨! ({satisfied_conditions}/8)"
             elif satisfied_conditions >= 3:
-                self.heart_debug_info = f"❤️‍🩹 하트 근사 ({satisfied_conditions}/8)"
+                self.heart_debug_info = f"하트 근사 ({satisfied_conditions}/8)"
             else:
                 self.heart_debug_info = f"하트: {satisfied_conditions}/8"
             
@@ -997,7 +1003,7 @@ class HandTrackingPixelPhotobooth:
         
         # 캐릭터 풀 리셋 (새 게임에서 모든 캐릭터 다시 사용 가능)
         self.reset_character_pool()
-        print("🎮 30초 친구들 옮기기 게임 시작!")
+        print("30초 친구들 옮기기 게임 시작!")
     
     def restart_game(self):
         """게임 재시작"""
@@ -1045,13 +1051,12 @@ class HandTrackingPixelPhotobooth:
         try:
             while True:
                 if CAMERA_UTILS_AVAILABLE:
-                    frame = camera_manager.read_frame()
-                    if frame is None:
+                    ret, frame = camera_manager.read_frame()
+                    if not ret or frame is None:
                         break
-                    ret = True
                 else:
                     ret, frame = cap.read()
-                    if not ret:
+                    if not ret or frame is None:
                         break
                 
                 frame = cv2.flip(frame, 1)

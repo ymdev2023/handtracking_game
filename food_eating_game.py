@@ -8,6 +8,12 @@ import math
 import numpy as np
 from math import sqrt
 
+# MediaPipe 로그 레벨 설정 (경고 메시지 숨기기)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import logging
+logging.getLogger('mediapipe').setLevel(logging.ERROR)
+logging.getLogger('absl').setLevel(logging.ERROR)
+
 # PIL/Pillow import with fallback
 try:
     from PIL import Image, ImageFont, ImageDraw
