@@ -7,7 +7,22 @@ import os
 import math
 import numpy as np
 from math import sqrt
-from PIL import Image, ImageFont, ImageDraw
+
+# PIL/Pillow import with fallback
+try:
+    from PIL import Image, ImageFont, ImageDraw
+    PIL_AVAILABLE = True
+except ImportError:
+    print("⚠️ PIL/Pillow가 설치되지 않았습니다. 폰트 기능이 제한될 수 있습니다.")
+    PIL_AVAILABLE = False
+
+# 카메라 유틸리티 import
+try:
+    from camera_utils import CameraManager
+    CAMERA_UTILS_AVAILABLE = True
+except ImportError:
+    print("⚠️ camera_utils를 찾을 수 없습니다. 기본 카메라 초기화를 사용합니다.")
+    CAMERA_UTILS_AVAILABLE = False
 
 # Pygame 초기화
 pygame.init()
@@ -534,9 +549,19 @@ def apply_beautify_filter(frame):
     return beautified
 
 def main():
-    cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    # 고급 카메라 초기화 (Arducam 지원)
+    if CAMERA_UTILS_AVAILABLE:
+        camera_manager = CameraManager()
+        cap = camera_manager.initialize_camera()
+        if cap is None:
+            print("[X] 카메라를 초기화할 수 없습니다!")
+            return
+    else:
+        # 기본 카메라 초기화
+        cap = cv2.VideoCapture(0)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        
     clock = pygame.time.Clock()
     game_state = GameState()
     high_score = load_high_score()
@@ -545,13 +570,19 @@ def main():
     # 게임 시작 화면
     waiting_for_start = True
     
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            continue
-            
-        # 프레임 좌우 반전
-        frame = cv2.flip(frame, 1)
+    try:
+        while True:
+            if CAMERA_UTILS_AVAILABLE:
+                frame = camera_manager.read_frame()
+                if frame is None:
+                    continue
+            else:
+                ret, frame = cap.read()
+                if not ret:
+                    continue
+                
+            # 프레임 좌우 반전
+            frame = cv2.flip(frame, 1)
         
         # beautify 필터 적용
         frame = apply_beautify_filter(frame)
@@ -791,6 +822,21 @@ def main():
             screen.blit(exit_text, exit_rect)
         pygame.display.flip()
         clock.tick(60)
+        
+    except KeyboardInterrupt:
+        print("\n게임이 중단되었습니다.")
+    except Exception as e:
+        print(f"오류 발생: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        if CAMERA_UTILS_AVAILABLE and 'camera_manager' in locals():
+            camera_manager.release()
+        elif 'cap' in locals():
+            cap.release()
+        cv2.destroyAllWindows()
+        pygame.quit()
+        print("게임 종료")
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,22 @@ import random
 import math
 import json
 import pygame
-from PIL import Image, ImageFont, ImageDraw
+
+# PIL/Pillow import with fallback
+try:
+    from PIL import Image, ImageFont, ImageDraw
+    PIL_AVAILABLE = True
+except ImportError:
+    print("⚠️ PIL/Pillow가 설치되지 않았습니다. 폰트 기능이 제한될 수 있습니다.")
+    PIL_AVAILABLE = False
+
+# 카메라 유틸리티 import
+try:
+    from camera_utils import CameraManager
+    CAMERA_UTILS_AVAILABLE = True
+except ImportError:
+    print("⚠️ camera_utils를 찾을 수 없습니다. 기본 카메라 초기화를 사용합니다.")
+    CAMERA_UTILS_AVAILABLE = False
 
 class HandTrackingPixelPhotobooth:
     def __init__(self):
@@ -1002,22 +1017,37 @@ class HandTrackingPixelPhotobooth:
         print("*** 📸 S키: 스크린샷 저장, ESC: 종료")
         print("=" * 60)
         
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            print("[X] 웹캠을 열 수 없습니다!")
-            return
-        
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        # 고급 카메라 초기화 (Arducam 지원)
+        if CAMERA_UTILS_AVAILABLE:
+            camera_manager = CameraManager()
+            cap = camera_manager.initialize_camera()
+            if cap is None:
+                print("[X] 카메라를 초기화할 수 없습니다!")
+                return
+        else:
+            # 기본 카메라 초기화
+            cap = cv2.VideoCapture(0)
+            if not cap.isOpened():
+                print("[X] 웹캠을 열 수 없습니다!")
+                return
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            
         print("✓ 웹캠 초기화 완료!")
         
         particles_enabled = True
         
         try:
             while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
+                if CAMERA_UTILS_AVAILABLE:
+                    frame = camera_manager.read_frame()
+                    if frame is None:
+                        break
+                    ret = True
+                else:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
                 
                 frame = cv2.flip(frame, 1)
                 frame_height, frame_width = frame.shape[:2]
@@ -1070,7 +1100,10 @@ class HandTrackingPixelPhotobooth:
             import traceback
             traceback.print_exc()
         finally:
-            cap.release()
+            if CAMERA_UTILS_AVAILABLE and 'camera_manager' in locals():
+                camera_manager.release()
+            elif 'cap' in locals():
+                cap.release()
             cv2.destroyAllWindows()
             print("\n< 3 Hand Tracking Pixel Photobooth 종료!")
 

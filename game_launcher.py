@@ -2,7 +2,14 @@ import pygame
 import subprocess
 import sys
 import os
-from PIL import Image, ImageDraw, ImageFont
+
+# PIL/Pillow import with fallback
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    PIL_AVAILABLE = True
+except ImportError:
+    print("⚠️ PIL/Pillow가 설치되지 않았습니다. 일부 기능이 제한될 수 있습니다.")
+    PIL_AVAILABLE = False
 
 # Pygame 초기화
 pygame.init()
