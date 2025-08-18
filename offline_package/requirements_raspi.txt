@@ -3,7 +3,7 @@
 
 # 핵심 컴퓨터 비전
 opencv-python==4.8.1.78
-mediapipe==0.10.21
+mediapipe==0.10.3
 
 # 게임 엔진
 pygame==2.5.2
@@ -17,6 +17,9 @@ pydub==0.25.1
 
 # 시스템 유틸리티
 psutil==5.9.5
+
+# JSON 처리 (내장 모듈이지만 명시)
+# json - 내장 모듈
 
 # 기타 유틸리티
 pathlib2==2.3.7
