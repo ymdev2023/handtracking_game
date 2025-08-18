@@ -23,7 +23,15 @@ fi
 
 echo "📦 필수 패키지 설치..."
 apt update
-apt install -y v4l-utils python3-opencv python3-pip
+apt install -y v4l-utils python3-opencv python3-pip i2c-tools
+
+# GStreamer 관련 패키지 설치 (Arducam CSI 지원)
+echo "📦 GStreamer 패키지 설치 (Arducam CSI 지원)..."
+apt install -y gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+
+# libcamera 설치 (최신 라즈베리파이 OS)
+echo "📦 libcamera 설치 (최신 카메라 지원)..."
+apt install -y libcamera-apps libcamera-dev || echo "⚠️ libcamera 설치 실패 (구버전 OS일 수 있음)"
 
 echo "👤 사용자를 video 그룹에 추가..."
 # 현재 sudo를 실행한 실제 사용자 찾기
@@ -79,13 +87,28 @@ if ! grep -q "^start_x=" "$CONFIG_FILE"; then
     echo "✅ 레거시 카메라 지원 활성화"
 fi
 
-# dtoverlay 설정 확인
+# dtoverlay 설정 확인 및 Arducam 지원 추가
 if ! grep -q "dtoverlay.*camera" "$CONFIG_FILE"; then
-    echo "# 일반적인 카메라 모듈 지원" >> "$CONFIG_FILE"
+    echo "# CSI 카메라 모듈 지원" >> "$CONFIG_FILE"
     echo "dtoverlay=ov5647" >> "$CONFIG_FILE"
-    echo "dtoverlay=imx219" >> "$CONFIG_FILE"
-    echo "✅ 카메라 오버레이 설정 추가"
+    echo "dtoverlay=imx219" >> "$CONFIG_FILE" 
+    echo "dtoverlay=imx477" >> "$CONFIG_FILE"
+    echo "dtoverlay=imx708" >> "$CONFIG_FILE"
+    echo "✅ 카메라 오버레이 설정 추가 (OV5647, IMX219, IMX477, IMX708)"
 fi
+
+# I2C 활성화 (Arducam 센서 통신용)
+if ! grep -q "^dtparam=i2c_arm=on" "$CONFIG_FILE"; then
+    echo "dtparam=i2c_arm=on" >> "$CONFIG_FILE"
+    echo "✅ I2C 활성화 (Arducam 센서 통신용)"
+else
+    sed -i 's/^dtparam=i2c_arm=.*/dtparam=i2c_arm=on/' "$CONFIG_FILE"
+fi
+
+# Arducam 특화 설정
+echo "# Arducam 특화 설정" >> "$CONFIG_FILE"
+echo "disable_camera_led=1" >> "$CONFIG_FILE"  # 카메라 LED 비활성화 (선택사항)
+echo "✅ Arducam 특화 설정 추가"
 
 echo "🔧 권한 설정..."
 # /dev/video* 권한 설정
@@ -101,11 +124,17 @@ vcgencmd get_mem gpu 2>/dev/null || echo "vcgencmd 명령어 없음"
 echo "--- 카메라 감지 ---"
 vcgencmd get_camera 2>/dev/null || echo "vcgencmd 명령어 없음"
 
+echo "--- I2C 장치 스캔 (Arducam 센서 확인) ---"
+i2cdetect -y 1 2>/dev/null || echo "I2C 스캔 실패"
+
 echo "--- 비디오 장치 ---"
 ls -la /dev/video* 2>/dev/null || echo "비디오 장치 없음"
 
 echo "--- V4L2 장치 ---"
 v4l2-ctl --list-devices 2>/dev/null || echo "v4l2-ctl 실행 불가"
+
+echo "--- libcamera 확인 ---"
+libcamera-hello --list-cameras --timeout 1 2>/dev/null || echo "libcamera 명령어 없음"
 
 echo ""
 echo "✅ 라즈베리파이 카메라 설정 완료!"

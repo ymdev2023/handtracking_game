@@ -51,6 +51,10 @@ def check_hardware():
             cpuinfo = f.read()
             if "Raspberry Pi" in cpuinfo:
                 print("✅ 라즈베리파이 감지됨")
+                # 모델 정보 추출
+                for line in cpuinfo.split('\n'):
+                    if 'Model' in line:
+                        print(f"  {line.strip()}")
             else:
                 print("⚠️ 라즈베리파이가 아닐 수 있음")
     
@@ -60,8 +64,42 @@ def check_hardware():
     # 카메라 하드웨어 감지
     run_command(["vcgencmd", "get_camera"], "카메라 하드웨어 감지")
     
+    # I2C 장치 확인 (Arducam 센서 감지)
+    print("\n🔍 I2C 장치 확인 (Arducam 센서 감지):")
+    success, output = run_command(["i2cdetect", "-y", "1"], "I2C 버스 1 스캔")
+    if success and output:
+        # 일반적인 카메라 센서 I2C 주소들
+        camera_addresses = {
+            '36': 'OV5647 (라즈베리파이 카메라 v1 / Arducam OV5647)',
+            '10': 'IMX219 (라즈베리파이 카메라 v2 / Arducam IMX219)', 
+            '1a': 'IMX477/IMX708 (HQ 카메라 / Arducam IMX477/IMX708)'
+        }
+        
+        for addr, description in camera_addresses.items():
+            if addr in output.lower():
+                print(f"  ✅ {description} 감지됨 (주소: 0x{addr})")
+    
+    # Device Tree 확인
+    print("\n🌳 Device Tree 카메라 정보:")
+    dt_paths = [
+        "/proc/device-tree/soc/i2c@7e804000/ov5647@36",
+        "/proc/device-tree/soc/i2c@7e804000/imx219@10", 
+        "/proc/device-tree/soc/i2c@7e804000/imx477@1a",
+        "/proc/device-tree/soc/i2c@7e804000/imx708@1a"
+    ]
+    
+    for path in dt_paths:
+        if os.path.exists(path):
+            sensor_name = path.split('/')[-1]
+            print(f"  ✅ {sensor_name} Device Tree 엔트리 발견")
+    
     # 커널 모듈 확인
-    run_command("lsmod | grep -E '(bcm2835|ov5647|imx219|imx477|v4l2)'", "카메라 관련 커널 모듈")
+    print("\n🔧 커널 모듈 확인:")
+    run_command("lsmod | grep -E '(bcm2835|ov5647|imx219|imx477|imx708|v4l2|unicam)'", "카메라 관련 커널 모듈")
+    
+    # dmesg에서 카메라 관련 로그 확인
+    print("\n📋 시스템 로그 확인:")
+    run_command("dmesg | grep -i -E '(camera|ov5647|imx219|imx477|imx708|bcm2835|mmal|unicam)' | tail -10", "카메라 관련 최근 로그")
 
 def check_permissions():
     """권한 확인"""

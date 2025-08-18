@@ -21,8 +21,18 @@ MediaPipe와 OpenCV를 사용한 핸드 트래킹 게임 모음입니다.
 ## 🖥️ 지원 플랫폼
 
 - ✅ **macOS** (Intel/Apple Silicon)
-- ✅ **라즈베리파이** (CSI 카메라, USB 웹캠, Arducam)
+- ✅ **라즈베리파이** (CSI 카메라, USB 웹캠, **Arducam CSI 모듈**)
 - ✅ **Linux** (일반 배포판)
+
+### 🎯 지원 카메라 모듈
+
+**라즈베리파이:**
+- 📷 **Arducam CSI 카메라** (OV5647, IMX219, IMX477, IMX708)
+- 📷 공식 라즈베리파이 카메라 (v1, v2, HQ)
+- 🔌 USB 웹캠 (UVC 호환)
+
+**기타 플랫폼:**
+- 🔌 표준 USB 웹캠
 
 ## 📦 설치 방법
 
@@ -44,25 +54,27 @@ pip install -r requirements.txt
 
 ### 라즈베리파이 특별 설치
 
-라즈베리파이에서는 추가 설정이 필요합니다:
+라즈베리파이에서는 추가 설정이 필요합니다 (Arducam CSI 포함):
 
 ```bash
-# 1. 자동 설정 스크립트 실행 (권장)
+# 1. 자동 설정 스크립트 실행 (권장) - Arducam CSI 지원 포함
 sudo bash setup_raspberry_pi_camera.sh
 
 # 2. 재부팅
 sudo reboot
 
-# 3. 카메라 테스트
+# 3. 카메라 테스트 (Arducam 감지 포함)
 python3 raspberry_pi_camera_test.py
 ```
 
 #### 수동 설정 (필요시)
 
 ```bash
-# 필수 패키지 설치
+# 필수 패키지 설치 (Arducam CSI 지원)
 sudo apt update
-sudo apt install -y v4l-utils python3-opencv
+sudo apt install -y v4l-utils python3-opencv i2c-tools
+sudo apt install -y gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+sudo apt install -y libcamera-apps libcamera-dev  # 최신 OS용
 
 # 사용자를 video 그룹에 추가
 sudo usermod -a -G video $USER
@@ -70,10 +82,18 @@ sudo usermod -a -G video $USER
 # 카메라 활성화
 sudo raspi-config
 # -> Interface Options -> Camera -> Enable
+# -> Interface Options -> I2C -> Enable (Arducam용)
 
-# GPU 메모리 설정 (/boot/config.txt)
+# GPU 메모리 설정 (/boot/config.txt 또는 /boot/firmware/config.txt)
 echo "gpu_mem=128" | sudo tee -a /boot/config.txt
 echo "camera_auto_detect=1" | sudo tee -a /boot/config.txt
+echo "dtparam=i2c_arm=on" | sudo tee -a /boot/config.txt  # Arducam I2C 통신
+
+# Arducam 센서 오버레이 추가
+echo "dtoverlay=ov5647" | sudo tee -a /boot/config.txt   # Arducam OV5647
+echo "dtoverlay=imx219" | sudo tee -a /boot/config.txt   # Arducam IMX219
+echo "dtoverlay=imx477" | sudo tee -a /boot/config.txt   # Arducam IMX477
+echo "dtoverlay=imx708" | sudo tee -a /boot/config.txt   # Arducam IMX708
 
 # 재부팅
 sudo reboot
@@ -151,11 +171,29 @@ sudo reboot
    # 카메라 모듈 활성화 확인
    vcgencmd get_camera
    
+   # Arducam 센서 I2C 확인
+   i2cdetect -y 1
+   
    # video 그룹 확인
    groups $USER
    
    # 권한 문제시
    sudo chmod 666 /dev/video*
+   
+   # libcamera 테스트 (최신 OS)
+   libcamera-hello --list-cameras
+   ```
+
+4. **Arducam CSI 카메라 특별 문제**
+   ```bash
+   # Device Tree 확인
+   ls -la /proc/device-tree/soc/i2c@7e804000/
+   
+   # 커널 모듈 확인
+   lsmod | grep bcm2835
+   
+   # GStreamer 테스트
+   gst-launch-1.0 libcamerasrc ! autovideosink
    ```
 
 4. **성능 저하 (라즈베리파이)**
