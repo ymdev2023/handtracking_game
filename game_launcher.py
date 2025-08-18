@@ -24,10 +24,11 @@ try:
 except:
     boop_sound = None
 
-# 화면 설정
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+# 화면 설정 (전체화면)
+info = pygame.display.Info()
+SCREEN_WIDTH = info.current_w
+SCREEN_HEIGHT = info.current_h
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
 pygame.display.set_caption("게임 선택하기")
 
 # 색상 정의
@@ -148,17 +149,25 @@ def run_game(script_name):
 def main():
     clock = pygame.time.Clock()
     
-    # 게임 버튼들
+    # 버튼 크기와 간격
+    button_width = 300
+    button_height = 200
+    button_spacing = 50
+    total_width = button_width * 2 + button_spacing
+    start_x = (SCREEN_WIDTH - total_width) // 2
+    button_y = (SCREEN_HEIGHT - button_height) // 2
+    
+    # 게임 버튼들 (화면 중앙 배치)
     buttons = [
         GameButton(
-            100, 200, 250, 200,
+            start_x, button_y, button_width, button_height,
             "캐릭터 옮기기",
             "손으로 캐릭터를 잡아서\n목표 지점으로 옮기는 게임\n핀치 제스처로 드래그!",
             "student_moving_game.py",
             PASTEL_PINK
         ),
         GameButton(
-            450, 200, 250, 200,
+            start_x + button_width + button_spacing, button_y, button_width, button_height,
             "음식 먹기",
             "입을 벌려서 떨어지는\n음식을 먹는 게임\n커비처럼 빨아들여요!",
             "food_eating_game.py",
@@ -184,6 +193,9 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False
+                elif event.key == pygame.K_F11:
+                    # 전체화면 토글
+                    pygame.display.toggle_fullscreen()
             
             # 버튼 이벤트 처리
             for button in buttons:
@@ -225,14 +237,20 @@ def main():
         draw_sparkles(screen, sparkles)
         
         # 제목
-        title_text = font_title.render("게임을 선택하세요!", True, DARK_GRAY)
-        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 80))
+        title_text = font_title.render("🎮 Hand Tracking Games 🎮", True, DARK_GRAY)
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 6))
         screen.blit(title_text, title_rect)
         
         # 부제목
         subtitle_text = font_medium.render("버튼을 클릭해서 게임을 시작하세요", True, GRAY)
-        subtitle_rect = subtitle_text.get_rect(center=(SCREEN_WIDTH // 2, 120))
+        subtitle_rect = subtitle_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 6 + 50))
         screen.blit(subtitle_text, subtitle_rect)
+        
+        # 하단 조작 안내
+        control_y = SCREEN_HEIGHT - 80
+        esc_text = font_small.render("ESC: 종료  |  F11: 전체화면 토글", True, GRAY)
+        esc_rect = esc_text.get_rect(center=(SCREEN_WIDTH // 2, control_y))
+        screen.blit(esc_text, esc_rect)
         
         # 버튼들 그리기
         for button in buttons:

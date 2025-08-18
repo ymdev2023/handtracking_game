@@ -1035,6 +1035,11 @@ class HandTrackingPixelPhotobooth:
             
         print("✓ 웹캠 초기화 완료!")
         
+        # OpenCV 창 전체화면 설정
+        window_name = '🎮 친구들을 옮겨줘! (ESC: 종료, F11: 전체화면 토글)'
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        
         particles_enabled = True
         
         try:
@@ -1071,13 +1076,20 @@ class HandTrackingPixelPhotobooth:
                 # UI 그리기
                 self.draw_ui(frame)
                 
-                cv2.imshow('친구들을 옮겨줘!', frame)
+                cv2.imshow(window_name, frame)
                 
                 key = cv2.waitKey(1) & 0xFF
                 if key == 27:  # ESC - 종료
                     break
                 elif key == ord('s'):  # S - 스크린샷 저장
                     filename = f"pixel_game_{int(time.time())}.jpg"
+                elif key == 255:  # F11 - 전체화면 토글 (일부 시스템에서)
+                    # 전체화면 상태 토글
+                    fullscreen = cv2.getWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN)
+                    if fullscreen == cv2.WINDOW_FULLSCREEN:
+                        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+                    else:
+                        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
                     cv2.imwrite(filename, frame)
                     print(f"\n📸 게임 스크린샷 저장: {filename}")
                 elif key == ord('c'):  # C - 캐릭터 전체 삭제 (디버그용)

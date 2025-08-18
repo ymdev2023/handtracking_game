@@ -69,11 +69,12 @@ try:
 except:
     coin_sound = None
 
-# 화면 설정
-SCREEN_WIDTH = 640
-SCREEN_HEIGHT = 480
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Food Eating Game")
+# 화면 설정 (전체화면)
+info = pygame.display.Info()
+SCREEN_WIDTH = info.current_w
+SCREEN_HEIGHT = info.current_h
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
+pygame.display.set_caption("🍔 음식 먹기 게임 (ESC: 종료, F11: 전체화면 토글)")
 
 # 색상 정의 (파스텔 컬러 추가)
 WHITE = (255, 255, 255)
@@ -639,6 +640,9 @@ def main():
                     cap.release()
                     pygame.quit()
                     return
+                elif event.key == pygame.K_F11:
+                    # 전체화면 토글
+                    pygame.display.toggle_fullscreen()
         
         # 하트 제스처로 게임 상태 제어
         current_time = pygame.time.get_ticks() / 1000.0
