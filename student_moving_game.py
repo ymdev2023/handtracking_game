@@ -1083,6 +1083,8 @@ class HandTrackingPixelPhotobooth:
                     break
                 elif key == ord('s'):  # S - 스크린샷 저장
                     filename = f"pixel_game_{int(time.time())}.jpg"
+                    cv2.imwrite(filename, frame)
+                    print(f"\n📸 게임 스크린샷 저장: {filename}")
                 elif key == 255:  # F11 - 전체화면 토글 (일부 시스템에서)
                     # 전체화면 상태 토글
                     fullscreen = cv2.getWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN)
@@ -1090,8 +1092,6 @@ class HandTrackingPixelPhotobooth:
                         cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
                     else:
                         cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-                    cv2.imwrite(filename, frame)
-                    print(f"\n📸 게임 스크린샷 저장: {filename}")
                 elif key == ord('c'):  # C - 캐릭터 전체 삭제 (디버그용)
                     self.characters.clear()
                     self.moved_characters.clear()
