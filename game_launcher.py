@@ -147,7 +147,7 @@ def main():
             100, 200, 250, 200,
             "캐릭터 옮기기",
             "손으로 캐릭터를 잡아서\n목표 지점으로 옮기는 게임\n핀치 제스처로 드래그!",
-            "handtracking_interactive.py",
+            "student_moving_game.py",
             PASTEL_PINK
         ),
         GameButton(
