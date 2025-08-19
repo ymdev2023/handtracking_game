@@ -776,7 +776,7 @@ class HandTrackingPixelPhotobooth:
         draw.rectangle([(0, 0), (w, 140)], fill=(250, 230, 255, 180))
         
         # 게임 제목 (neodgm 폰트)
-        title_text = "친구들을 옮겨줘!"
+        title_text = "친구들을 옮겨줘"
         try:
             title_bbox = draw.textbbox((0, 0), title_text, font=self.font_large)
             title_width = title_bbox[2] - title_bbox[0]
@@ -982,16 +982,16 @@ class HandTrackingPixelPhotobooth:
         
         # 캐릭터 풀 리셋 (새 게임에서 모든 캐릭터 다시 사용 가능)
         self.reset_character_pool()
-        print("🎮 30초 친구들 옮기기 게임 시작!")
+        print("30초 친구들 옮기기 게임 시작!")
     
     def restart_game(self):
         """게임 재시작"""
         self.start_game()  # start_game과 동일한 로직
-        print("🎮 게임 재시작! 새로운 캐릭터들과 함께!")
+        print("게임 재시작! 새로운 캐릭터들과 함께!")
     
     def run(self):
         """메인 실행"""
-        print("\n🎮 🎮 친구들을 옮겨줘! 🎮 🎮")
+        print("\n친구들을 옮겨줘")
         print("=" * 60)
         print("*** 30초 안에 왼쪽 캐릭터들을 오른쪽으로 옮기세요!")
         print("*** � 손으로 하트를 그려주세요 (게임 시작 및 재시작)!")
@@ -1002,7 +1002,11 @@ class HandTrackingPixelPhotobooth:
         print("*** 📸 S키: 스크린샷 저장, ESC: 종료")
         print("=" * 60)
         
-        cap = cv2.VideoCapture(0)
+        # 환경변수에서 카메라 인덱스 가져오기
+        camera_index = int(os.environ.get('CAMERA_INDEX', '0'))
+        print(f"🎮 캐릭터 옮기기 게임 - 카메라 {camera_index} 사용 중...")
+        
+        cap = cv2.VideoCapture(camera_index)
         if not cap.isOpened():
             print("[X] 웹캠을 열 수 없습니다!")
             return
@@ -1010,6 +1014,29 @@ class HandTrackingPixelPhotobooth:
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         print("✓ 웹캠 초기화 완료!")
+        
+        # 반응형 창 크기 설정
+        import tkinter as tk
+        try:
+            root = tk.Tk()
+            screen_width = root.winfo_screenwidth()
+            screen_height = root.winfo_screenheight()
+            root.destroy()
+            
+            # 화면 비율에 따라 창 크기 조정
+            if screen_height > screen_width:  # 세로화면
+                window_width = min(int(screen_width * 0.9), 600)
+                window_height = min(int(screen_height * 0.7), 800)
+            else:  # 가로화면
+                window_width = min(int(screen_width * 0.7), 900)
+                window_height = min(int(screen_height * 0.8), 700)
+            
+            cv2.namedWindow('친구들을 옮겨줘', cv2.WINDOW_NORMAL)
+            cv2.resizeWindow('친구들을 옮겨줘', window_width, window_height)
+            print(f"✓ 반응형 창 크기 설정: {window_width}x{window_height}")
+        except:
+            cv2.namedWindow('친구들을 옮겨줘', cv2.WINDOW_NORMAL)
+            print("✓ 기본 창 크기로 설정")
         
         particles_enabled = True
         
@@ -1041,7 +1068,7 @@ class HandTrackingPixelPhotobooth:
                 # UI 그리기
                 self.draw_ui(frame)
                 
-                cv2.imshow('친구들을 옮겨줘!', frame)
+                cv2.imshow('친구들을 옮겨줘', frame)
                 
                 key = cv2.waitKey(1) & 0xFF
                 if key == 27:  # ESC - 종료

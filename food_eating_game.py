@@ -55,8 +55,19 @@ except:
     coin_sound = None
 
 # 화면 설정
-SCREEN_WIDTH = 640
-SCREEN_HEIGHT = 480
+# 화면 설정 (반응형)
+info = pygame.display.Info()
+screen_width = info.current_w
+screen_height = info.current_h
+
+# 화면 비율에 따라 적절한 창 크기 설정
+if screen_height > screen_width:  # 세로화면
+    SCREEN_WIDTH = min(int(screen_width * 0.9), 600)
+    SCREEN_HEIGHT = min(int(screen_height * 0.8), 800)
+else:  # 가로화면
+    SCREEN_WIDTH = min(int(screen_width * 0.7), 900)
+    SCREEN_HEIGHT = min(int(screen_height * 0.8), 700)
+
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Food Eating Game")
 
@@ -534,7 +545,11 @@ def apply_beautify_filter(frame):
     return beautified
 
 def main():
-    cap = cv2.VideoCapture(0)
+    # 환경변수에서 카메라 인덱스 가져오기
+    camera_index = int(os.environ.get('CAMERA_INDEX', '0'))
+    print(f"🎮 음식 먹기 게임 - 카메라 {camera_index} 사용 중...")
+    
+    cap = cv2.VideoCapture(camera_index)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     clock = pygame.time.Clock()
@@ -616,13 +631,13 @@ def main():
             if waiting_for_start:
                 waiting_for_start = False
                 game_state.game_started = True
-                print("🎮 하트 제스처로 게임 시작!")
+                print("하트 제스처로 게임 시작!")
             elif game_state.game_over:
                 # 게임 재시작
                 game_state = GameState()
                 game_state.game_started = True
                 new_record = False
-                print("🎮 하트 제스처로 게임 재시작!")
+                print("하트 제스처로 게임 재시작!")
         
         screen.fill(BLACK)
         

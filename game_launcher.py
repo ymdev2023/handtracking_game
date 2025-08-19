@@ -2,7 +2,44 @@ import pygame
 import subprocess
 import sys
 import os
+import cv2
 from PIL import Image, ImageDraw, ImageFont
+
+# USB 웹캠 감지 함수
+def detect_usb_camera():
+    """USB 웹캠을 감지하고 우선적으로 사용할 카메라 인덱스를 반환"""
+    print("🔍 카메라 장치 검색 중...")
+    
+    # Windows에서 USB 웹캠 감지
+    usb_camera_detected = False
+    try:
+        import subprocess
+        result = subprocess.run(['powershell', 'Get-PnpDevice -Class Camera'], 
+                              capture_output=True, text=True, timeout=2)
+        camera_list = result.stdout
+        if 'C920' in camera_list or 'USB' in camera_list:
+            usb_camera_detected = True
+            print("🔌 USB 웹캠이 Windows에서 감지됨!")
+    except:
+        pass
+    
+    # 빠른 카메라 테스트 - 가장 일반적인 인덱스만 시도
+    if usb_camera_detected:
+        # USB 웹캠이 감지되면 1번을 먼저 시도
+        camera_index = 1
+        print(f"🎯 USB 웹캠 감지됨 - 카메라 {camera_index} 사용")
+    else:
+        # USB 웹캠이 없으면 0번 사용
+        camera_index = 0
+        print(f"� 내장 카메라 사용 - 카메라 {camera_index} 사용")
+    
+    # 선택된 카메라가 작동하는지 간단히 확인
+    try:
+        print(f"✅ 카메라 {camera_index} 준비 완료")
+        return camera_index, [{'index': camera_index, 'name': f'카메라 {camera_index}'}]
+    except:
+        print(f"⚠️ 카메라 {camera_index} 사용 불가, 기본값 0 사용")
+        return 0, [{'index': 0, 'name': '기본 카메라'}]
 
 # Pygame 초기화
 pygame.init()
@@ -17,11 +54,21 @@ try:
 except:
     boop_sound = None
 
-# 화면 설정
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+# 화면 설정 (반응형)
+info = pygame.display.Info()
+screen_width = info.current_w
+screen_height = info.current_h
+
+# 화면 비율에 따라 적절한 창 크기 설정
+if screen_height > screen_width:  # 세로화면
+    SCREEN_WIDTH = min(int(screen_width * 0.9), 600)
+    SCREEN_HEIGHT = min(int(screen_height * 0.8), 800)
+else:  # 가로화면
+    SCREEN_WIDTH = min(int(screen_width * 0.7), 1000)
+    SCREEN_HEIGHT = min(int(screen_height * 0.8), 700)
+
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("게임 선택하기")
+pygame.display.set_caption("INTERACTIVE GAME")
 
 # 색상 정의
 WHITE = (255, 255, 255)
@@ -121,7 +168,7 @@ def update_sparkles(sparkles):
         x, y, size, alpha = sparkle
         sparkles[i] = (x, y, size, max(0, alpha - 3))
 
-def run_game(script_name):
+def run_game(script_name, camera_index=0):
     """게임 실행"""
     try:
         # Python 가상환경 경로
@@ -132,32 +179,76 @@ def run_game(script_name):
             if os.path.exists(venv_python):
                 python_path = venv_python
         
+        # 환경변수에 카메라 인덱스 설정
+        env = os.environ.copy()
+        env['CAMERA_INDEX'] = str(camera_index)
+        
         script_path = os.path.join(os.path.dirname(__file__), script_name)
-        subprocess.Popen([python_path, script_path])
-        print(f"게임 실행: {script_name}")
+        subprocess.Popen([python_path, script_path], env=env)
+        print(f"게임 실행: {script_name} (카메라: {camera_index})")
     except Exception as e:
         print(f"게임 실행 오류: {e}")
 
 def main():
     clock = pygame.time.Clock()
     
-    # 게임 버튼들
-    buttons = [
-        GameButton(
-            100, 200, 250, 200,
-            "캐릭터 옮기기",
-            "손으로 캐릭터를 잡아서\n목표 지점으로 옮기는 게임\n핀치 제스처로 드래그!",
-            "student_moving_game.py",
-            PASTEL_PINK
-        ),
-        GameButton(
-            450, 200, 250, 200,
-            "음식 먹기",
-            "입을 벌려서 떨어지는\n음식을 먹는 게임\n커비처럼 빨아들여요!",
-            "food_eating_game.py",
-            PASTEL_BLUE
-        )
-    ]
+    # USB 웹캠 감지 및 카메라 설정
+    default_camera, available_cameras = detect_usb_camera()
+    
+    # 화면 비율 확인
+    is_portrait = SCREEN_HEIGHT > SCREEN_WIDTH
+    
+    # 반응형 버튼 배치
+    if is_portrait:  # 세로화면 레이아웃
+        button_width = int(SCREEN_WIDTH * 0.8)
+        button_height = int(SCREEN_HEIGHT * 0.25)
+        button_spacing = int(SCREEN_HEIGHT * 0.05)
+        
+        start_x = (SCREEN_WIDTH - button_width) // 2
+        button1_y = int(SCREEN_HEIGHT * 0.3)
+        button2_y = button1_y + button_height + button_spacing
+        
+        buttons = [
+            GameButton(
+                start_x, button1_y, button_width, button_height,
+                "캐릭터 옮기기",
+                "손으로 캐릭터를 잡아서\n목표 지점으로 옮기는 게임\n핀치 제스처로 드래그",
+                "student_moving_game.py",
+                PASTEL_PINK
+            ),
+            GameButton(
+                start_x, button2_y, button_width, button_height,
+                "음식 먹기",
+                "입을 벌려서 떨어지는\n음식을 먹는 게임\n커비처럼 빨아들여요",
+                "food_eating_game.py",
+                PASTEL_BLUE
+            )
+        ]
+    else:  # 가로화면 레이아웃
+        button_width = int(SCREEN_WIDTH * 0.35)
+        button_height = int(SCREEN_HEIGHT * 0.45)
+        button_spacing = int(SCREEN_WIDTH * 0.05)
+        
+        total_width = button_width * 2 + button_spacing
+        start_x = (SCREEN_WIDTH - total_width) // 2
+        button_y = int(SCREEN_HEIGHT * 0.3)
+        
+        buttons = [
+            GameButton(
+                start_x, button_y, button_width, button_height,
+                "캐릭터 옮기기",
+                "손으로 캐릭터를 잡아서\n목표 지점으로 옮기는 게임\n핀치 제스처로 드래그",
+                "student_moving_game.py",
+                PASTEL_PINK
+            ),
+            GameButton(
+                start_x + button_width + button_spacing, button_y, button_width, button_height,
+                "음식 먹기",
+                "입을 벌려서 떨어지는\n음식을 먹는 게임\n커비처럼 빨아들여요",
+                "food_eating_game.py",
+                PASTEL_BLUE
+            )
+        ]
     
     # 반짝이는 효과
     sparkles = []
@@ -192,7 +283,7 @@ def main():
             current_time = pygame.time.get_ticks()
             # boop-sfx는 약 500ms 정도이므로 600ms 후에 게임 실행
             if current_time - sound_start_time >= 600:
-                run_game(selected_game)
+                run_game(selected_game, default_camera)
                 running = False
         
         # 반짝이는 효과 업데이트
@@ -217,14 +308,16 @@ def main():
         # 반짝이는 효과 그리기
         draw_sparkles(screen, sparkles)
         
-        # 제목
-        title_text = font_title.render("게임을 선택하세요!", True, DARK_GRAY)
-        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 80))
+        # 제목 (반응형 위치)
+        title_y = int(SCREEN_HEIGHT * 0.15) if is_portrait else int(SCREEN_HEIGHT * 0.12)
+        title_text = font_title.render("INTERACTIVE GAME", True, DARK_GRAY)
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, title_y))
         screen.blit(title_text, title_rect)
         
-        # 부제목
+        # 부제목 (반응형 위치)
+        subtitle_y = title_y + int(SCREEN_HEIGHT * 0.06)
         subtitle_text = font_medium.render("버튼을 클릭해서 게임을 시작하세요", True, GRAY)
-        subtitle_rect = subtitle_text.get_rect(center=(SCREEN_WIDTH // 2, 120))
+        subtitle_rect = subtitle_text.get_rect(center=(SCREEN_WIDTH // 2, subtitle_y))
         screen.blit(subtitle_text, subtitle_rect)
         
         # 버튼들 그리기
