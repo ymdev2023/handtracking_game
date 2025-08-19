@@ -9,7 +9,28 @@ import json
 import sys
 import subprocess
 import pygame
-from PIL import Image, ImageFont, ImageDraw
+
+# MediaPipe 로그 레벨 설정 (경고 메시지 숨기기)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import logging
+logging.getLogger('mediapipe').setLevel(logging.ERROR)
+logging.getLogger('absl').setLevel(logging.ERROR)
+
+# PIL/Pillow import with fallback
+try:
+    from PIL import Image, ImageFont, ImageDraw
+    PIL_AVAILABLE = True
+except ImportError:
+    print("⚠️ PIL/Pillow가 설치되지 않았습니다. 폰트 기능이 제한될 수 있습니다.")
+    PIL_AVAILABLE = False
+
+# 카메라 유틸리티 import
+try:
+    from camera_utils import CameraManager
+    CAMERA_UTILS_AVAILABLE = True
+except ImportError:
+    print("⚠️ camera_utils를 찾을 수 없습니다. 기본 카메라 초기화를 사용합니다.")
+    CAMERA_UTILS_AVAILABLE = False
 
 def check_and_activate_venv():
     """가상환경 체크 및 자동 활성화"""
@@ -543,9 +564,9 @@ class HandTrackingPixelPhotobooth:
             
             # 디버그 정보 저장 (화면 표시용)
             if satisfied_conditions >= 5:
-                self.heart_debug_info = f"💖 하트 감지됨! ({satisfied_conditions}/8)"
+                self.heart_debug_info = f"하트 감지됨! ({satisfied_conditions}/8)"
             elif satisfied_conditions >= 3:
-                self.heart_debug_info = f"❤️‍🩹 하트 근사 ({satisfied_conditions}/8)"
+                self.heart_debug_info = f"하트 근사 ({satisfied_conditions}/8)"
             else:
                 self.heart_debug_info = f"하트: {satisfied_conditions}/8"
             
@@ -1102,6 +1123,7 @@ class HandTrackingPixelPhotobooth:
         print("*** 📸 S키: 스크린샷 저장, ESC: 종료")
         print("=" * 60)
         
+<<<<<<< HEAD
         # 환경변수에서 카메라 인덱스 가져오거나 USB 웹캠 자동 감지
         if 'CAMERA_INDEX' in os.environ:
             camera_index = int(os.environ.get('CAMERA_INDEX'))
@@ -1148,14 +1170,43 @@ class HandTrackingPixelPhotobooth:
         
         # 폰트 크기 업데이트
         self.update_font_sizes(self.ui_scale)
+=======
+        # 고급 카메라 초기화 (Arducam 지원)
+        if CAMERA_UTILS_AVAILABLE:
+            camera_manager = CameraManager()
+            cap = camera_manager.initialize_camera()
+            if cap is None:
+                print("[X] 카메라를 초기화할 수 없습니다!")
+                return
+        else:
+            # 기본 카메라 초기화
+            cap = cv2.VideoCapture(0)
+            if not cap.isOpened():
+                print("[X] 웹캠을 열 수 없습니다!")
+                return
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            
+        print("✓ 웹캠 초기화 완료!")
+>>>>>>> 18a0931af64b9e56da1d4f711010130e0d8079f6
+        
+        # OpenCV 창 전체화면 설정
+        window_name = '🎮 친구들을 옮겨줘! (ESC: 종료, F11: 전체화면 토글)'
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         
         particles_enabled = True
         
         try:
             while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
+                if CAMERA_UTILS_AVAILABLE:
+                    ret, frame = camera_manager.read_frame()
+                    if not ret or frame is None:
+                        break
+                else:
+                    ret, frame = cap.read()
+                    if not ret or frame is None:
+                        break
                 
                 frame = cv2.flip(frame, 1)
                 frame_height, frame_width = frame.shape[:2]
@@ -1179,7 +1230,11 @@ class HandTrackingPixelPhotobooth:
                 # UI 그리기
                 self.draw_ui(frame)
                 
+<<<<<<< HEAD
                 cv2.imshow('STUDENT MOVING GAME', frame)
+=======
+                cv2.imshow(window_name, frame)
+>>>>>>> 18a0931af64b9e56da1d4f711010130e0d8079f6
                 
                 key = cv2.waitKey(1) & 0xFF
                 if key == 27:  # ESC - 종료
@@ -1188,6 +1243,13 @@ class HandTrackingPixelPhotobooth:
                     filename = f"pixel_game_{int(time.time())}.jpg"
                     cv2.imwrite(filename, frame)
                     print(f"\n📸 게임 스크린샷 저장: {filename}")
+                elif key == 255:  # F11 - 전체화면 토글 (일부 시스템에서)
+                    # 전체화면 상태 토글
+                    fullscreen = cv2.getWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN)
+                    if fullscreen == cv2.WINDOW_FULLSCREEN:
+                        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+                    else:
+                        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
                 elif key == ord('c'):  # C - 캐릭터 전체 삭제 (디버그용)
                     self.characters.clear()
                     self.moved_characters.clear()
@@ -1208,7 +1270,10 @@ class HandTrackingPixelPhotobooth:
             import traceback
             traceback.print_exc()
         finally:
-            cap.release()
+            if CAMERA_UTILS_AVAILABLE and 'camera_manager' in locals():
+                camera_manager.release()
+            elif 'cap' in locals():
+                cap.release()
             cv2.destroyAllWindows()
             print("\n< 3 Hand Tracking Pixel Photobooth 종료!")
 

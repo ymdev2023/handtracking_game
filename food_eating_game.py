@@ -10,7 +10,28 @@ import sys
 import subprocess
 import numpy as np
 from math import sqrt
-from PIL import Image, ImageFont, ImageDraw
+
+# MediaPipe 로그 레벨 설정 (경고 메시지 숨기기)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import logging
+logging.getLogger('mediapipe').setLevel(logging.ERROR)
+logging.getLogger('absl').setLevel(logging.ERROR)
+
+# PIL/Pillow import with fallback
+try:
+    from PIL import Image, ImageFont, ImageDraw
+    PIL_AVAILABLE = True
+except ImportError:
+    print("⚠️ PIL/Pillow가 설치되지 않았습니다. 폰트 기능이 제한될 수 있습니다.")
+    PIL_AVAILABLE = False
+
+# 카메라 유틸리티 import
+try:
+    from camera_utils import CameraManager
+    CAMERA_UTILS_AVAILABLE = True
+except ImportError:
+    print("⚠️ camera_utils를 찾을 수 없습니다. 기본 카메라 초기화를 사용합니다.")
+    CAMERA_UTILS_AVAILABLE = False
 
 def check_and_activate_venv():
     """가상환경 체크 및 자동 활성화"""
@@ -107,6 +128,7 @@ try:
 except:
     coin_sound = None
 
+<<<<<<< HEAD
 # 화면 설정
 # 화면 설정 (창모드 600x800)
 SCREEN_WIDTH = 600
@@ -114,6 +136,14 @@ SCREEN_HEIGHT = 800
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("INTERACTIVE GAME")
+=======
+# 화면 설정 (전체화면)
+info = pygame.display.Info()
+SCREEN_WIDTH = info.current_w
+SCREEN_HEIGHT = info.current_h
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
+pygame.display.set_caption("음식 먹기 게임 (ESC: 종료, F11: 전체화면 토글)")
+>>>>>>> 18a0931af64b9e56da1d4f711010130e0d8079f6
 
 # 색상 정의 (파스텔 컬러 추가)
 WHITE = (255, 255, 255)
@@ -626,6 +656,7 @@ def detect_usb_camera():
     return camera_index
 
 def main():
+<<<<<<< HEAD
     # 가상환경 체크 및 자동 활성화
     if not check_and_activate_venv():
         print("❌ 가상환경 설정을 확인해주세요.")
@@ -674,6 +705,21 @@ def main():
     
     print("🚀 게임 시작!")
     
+=======
+    # 고급 카메라 초기화 (Arducam 지원)
+    if CAMERA_UTILS_AVAILABLE:
+        camera_manager = CameraManager()
+        cap = camera_manager.initialize_camera()
+        if cap is None:
+            print("[X] 카메라를 초기화할 수 없습니다!")
+            return
+    else:
+        # 기본 카메라 초기화
+        cap = cv2.VideoCapture(0)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        
+>>>>>>> 18a0931af64b9e56da1d4f711010130e0d8079f6
     clock = pygame.time.Clock()
     game_state = GameState()
     high_score = load_high_score()
@@ -682,13 +728,19 @@ def main():
     # 게임 시작 화면
     waiting_for_start = True
     
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            continue
-            
-        # 프레임 좌우 반전
-        frame = cv2.flip(frame, 1)
+    try:
+        while True:
+            if CAMERA_UTILS_AVAILABLE:
+                frame = camera_manager.read_frame()
+                if frame is None:
+                    continue
+            else:
+                ret, frame = cap.read()
+                if not ret:
+                    continue
+                
+            # 프레임 좌우 반전
+            frame = cv2.flip(frame, 1)
         
         # beautify 필터 적용
         frame = apply_beautify_filter(frame)
@@ -745,6 +797,9 @@ def main():
                     cap.release()
                     pygame.quit()
                     return
+                elif event.key == pygame.K_F11:
+                    # 전체화면 토글
+                    pygame.display.toggle_fullscreen()
         
         # 하트 제스처로 게임 상태 제어
         current_time = pygame.time.get_ticks() / 1000.0
@@ -945,6 +1000,21 @@ def main():
             screen.blit(exit_text, exit_rect)
         pygame.display.flip()
         clock.tick(60)
+        
+    except KeyboardInterrupt:
+        print("\n게임이 중단되었습니다.")
+    except Exception as e:
+        print(f"오류 발생: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        if CAMERA_UTILS_AVAILABLE and 'camera_manager' in locals():
+            camera_manager.release()
+        elif 'cap' in locals():
+            cap.release()
+        cv2.destroyAllWindows()
+        pygame.quit()
+        print("게임 종료")
 
 if __name__ == "__main__":
     main()

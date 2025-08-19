@@ -5,56 +5,6 @@ import os
 import cv2
 from PIL import Image, ImageDraw, ImageFont
 
-def check_and_activate_venv():
-    """가상환경 체크 및 자동 활성화"""
-    print("🔍 가상환경 상태 확인 중...")
-    
-    # 현재 가상환경 체크
-    venv_path = os.path.join(os.getcwd(), ".venv")
-    is_venv_active = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
-    
-    if is_venv_active:
-        print("✅ 가상환경이 이미 활성화되어 있습니다.")
-        return True
-    
-    if os.path.exists(venv_path):
-        print("🔄 가상환경을 찾았습니다. 자동으로 활성화를 시도합니다...")
-        
-        # Windows PowerShell에서 가상환경 활성화 후 게임 재실행
-        script_path = os.path.abspath(__file__)
-        activate_script = os.path.join(venv_path, "Scripts", "Activate.ps1")
-        
-        if os.path.exists(activate_script):
-            print("🚀 가상환경으로 게임을 재시작합니다...")
-            
-            # PowerShell 명령 구성
-            powershell_cmd = f'& "{activate_script}"; python "{script_path}"'
-            
-            try:
-                # 현재 프로세스 종료 후 가상환경에서 재시작
-                subprocess.Popen([
-                    "powershell", "-ExecutionPolicy", "Bypass", "-Command", powershell_cmd
-                ], cwd=os.getcwd())
-                
-                print("✅ 가상환경에서 게임을 시작했습니다. 현재 프로세스를 종료합니다.")
-                sys.exit(0)
-                
-            except Exception as e:
-                print(f"❌ 가상환경 활성화 실패: {e}")
-                print("⚠️ 수동으로 가상환경을 활성화해주세요:")
-                print(f"   & {activate_script}")
-                return False
-        else:
-            print(f"❌ 활성화 스크립트를 찾을 수 없습니다: {activate_script}")
-            return False
-    else:
-        print(f"❌ 가상환경을 찾을 수 없습니다: {venv_path}")
-        print("⚠️ 다음 명령어로 가상환경을 생성하세요:")
-        print("   python -m venv .venv")
-        return False
-    
-    return True
-
 # USB 웹캠 감지 함수
 def detect_usb_camera():
     """USB 웹캠을 감지하고 우선적으로 사용할 카메라 인덱스를 반환"""
@@ -104,9 +54,9 @@ try:
 except:
     boop_sound = None
 
-# 화면 설정 (창모드 480x640)
-SCREEN_WIDTH = 480
-SCREEN_HEIGHT = 640
+# 화면 설정 (고정 600x800)
+SCREEN_WIDTH = 600
+SCREEN_HEIGHT = 800
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("INTERACTIVE GAME")
@@ -122,17 +72,17 @@ PASTEL_MINT = (175, 238, 238)
 GRAY = (128, 128, 128)
 DARK_GRAY = (64, 64, 64)
 
-# 폰트 설정
+# 폰트 설정 (600x800에 맞춤)
 try:
-    font_title = pygame.font.Font("neodgm.ttf", 36)
-    font_large = pygame.font.Font("neodgm.ttf", 28)
-    font_medium = pygame.font.Font("neodgm.ttf", 20)
-    font_small = pygame.font.Font("neodgm.ttf", 16)
+    font_title = pygame.font.Font("neodgm.ttf", 60)
+    font_large = pygame.font.Font("neodgm.ttf", 45)
+    font_medium = pygame.font.Font("neodgm.ttf", 35)
+    font_small = pygame.font.Font("neodgm.ttf", 25)
 except:
-    font_title = pygame.font.Font(None, 36)
-    font_large = pygame.font.Font(None, 28)
-    font_medium = pygame.font.Font(None, 20)
-    font_small = pygame.font.Font(None, 16)
+    font_title = pygame.font.Font(None, 60)
+    font_large = pygame.font.Font(None, 45)
+    font_medium = pygame.font.Font(None, 35)
+    font_small = pygame.font.Font(None, 25)
 
 class GameButton:
     def __init__(self, x, y, width, height, title, description, script_name, color):
@@ -231,12 +181,6 @@ def run_game(script_name, camera_index=0):
         print(f"게임 실행 오류: {e}")
 
 def main():
-    # 가상환경 체크 및 자동 활성화
-    if not check_and_activate_venv():
-        print("❌ 가상환경 설정을 확인해주세요.")
-        input("Press Enter to exit...")
-        return
-    
     clock = pygame.time.Clock()
     
     # USB 웹캠 감지 및 카메라 설정

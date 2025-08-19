@@ -3,8 +3,13 @@
 ## 시스템 요구사항
 - 라즈베리파이 4 (4GB RAM 이상 권장)
 - Raspberry Pi OS (Bullseye 64-bit 권장)
-- USB 웹캠 또는 라즈베리파이 카메라 모듈
+- USB 웹캠, 라즈베리파이 카메라 모듈, 또는 **Arducam 모듈**
 - 인터넷 연결
+
+## 지원되는 카메라
+✅ 표준 USB 웹캠  
+✅ 라즈베리파이 CSI 카메라 모듈  
+✅ **Arducam USB/CSI 카메라 모듈** (자동 감지 및 최적화)  
 
 ## 1. 시스템 업데이트
 ```bash
@@ -57,7 +62,16 @@ pip install wheel setuptools
 pip install -r requirements_raspi.txt
 ```
 
-## 6. 카메라 권한 설정
+## 6. Arducam 카메라 설정 (Arducam 사용시)
+```bash
+# Arducam 자동 설정 실행
+./setup_arducam.sh
+
+# 카메라 테스트
+python3 camera_utils.py
+```
+
+## 7. 카메라 권한 설정
 ```bash
 # 카메라 그룹에 사용자 추가
 sudo usermod -a -G video $USER
@@ -66,7 +80,7 @@ sudo usermod -a -G video $USER
 sudo reboot
 ```
 
-## 7. 게임 실행
+## 8. 게임 실행
 ```bash
 cd ~/handtracking_game
 source .venv/bin/activate
