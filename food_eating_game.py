@@ -5,9 +5,62 @@ import random
 import json
 import os
 import math
+import time
+import sys
+import subprocess
 import numpy as np
 from math import sqrt
 from PIL import Image, ImageFont, ImageDraw
+
+def check_and_activate_venv():
+    """가상환경 체크 및 자동 활성화"""
+    print("🔍 가상환경 상태 확인 중...")
+    
+    # 현재 가상환경 체크
+    venv_path = os.path.join(os.getcwd(), ".venv")
+    is_venv_active = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+    
+    if is_venv_active:
+        print("✅ 가상환경이 이미 활성화되어 있습니다.")
+        return True
+    
+    if os.path.exists(venv_path):
+        print("🔄 가상환경을 찾았습니다. 자동으로 활성화를 시도합니다...")
+        
+        # Windows PowerShell에서 가상환경 활성화 후 게임 재실행
+        script_path = os.path.abspath(__file__)
+        activate_script = os.path.join(venv_path, "Scripts", "Activate.ps1")
+        
+        if os.path.exists(activate_script):
+            print("🚀 가상환경으로 게임을 재시작합니다...")
+            
+            # PowerShell 명령 구성
+            powershell_cmd = f'& "{activate_script}"; python "{script_path}"'
+            
+            try:
+                # 현재 프로세스 종료 후 가상환경에서 재시작
+                subprocess.Popen([
+                    "powershell", "-ExecutionPolicy", "Bypass", "-Command", powershell_cmd
+                ], cwd=os.getcwd())
+                
+                print("✅ 가상환경에서 게임을 시작했습니다. 현재 프로세스를 종료합니다.")
+                sys.exit(0)
+                
+            except Exception as e:
+                print(f"❌ 가상환경 활성화 실패: {e}")
+                print("⚠️ 수동으로 가상환경을 활성화해주세요:")
+                print(f"   & {activate_script}")
+                return False
+        else:
+            print(f"❌ 활성화 스크립트를 찾을 수 없습니다: {activate_script}")
+            return False
+    else:
+        print(f"❌ 가상환경을 찾을 수 없습니다: {venv_path}")
+        print("⚠️ 다음 명령어로 가상환경을 생성하세요:")
+        print("   python -m venv .venv")
+        return False
+    
+    return True
 
 # Pygame 초기화
 pygame.init()
@@ -55,21 +108,12 @@ except:
     coin_sound = None
 
 # 화면 설정
-# 화면 설정 (반응형)
-info = pygame.display.Info()
-screen_width = info.current_w
-screen_height = info.current_h
-
-# 화면 비율에 따라 적절한 창 크기 설정
-if screen_height > screen_width:  # 세로화면
-    SCREEN_WIDTH = min(int(screen_width * 0.9), 600)
-    SCREEN_HEIGHT = min(int(screen_height * 0.8), 800)
-else:  # 가로화면
-    SCREEN_WIDTH = min(int(screen_width * 0.7), 900)
-    SCREEN_HEIGHT = min(int(screen_height * 0.8), 700)
+# 화면 설정 (창모드 600x800)
+SCREEN_WIDTH = 600
+SCREEN_HEIGHT = 800
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Food Eating Game")
+pygame.display.set_caption("INTERACTIVE GAME")
 
 # 색상 정의 (파스텔 컬러 추가)
 WHITE = (255, 255, 255)
@@ -86,15 +130,22 @@ PASTEL_GREEN = (200, 255, 200)
 PASTEL_PURPLE = (221, 160, 221)
 PASTEL_MINT = (175, 238, 238)
 
-# 폰트 설정
+# 폰트 설정 (600x800에 맞춘 고정 크기)
+base_font_size = 30  # 고정 기본 폰트 크기
+print(f"🎮 창 크기: {SCREEN_WIDTH}x{SCREEN_HEIGHT}, 기본 폰트 크기: {base_font_size}")
+
 try:
-    font_large = pygame.font.Font("neodgm.ttf", 48)
-    font_medium = pygame.font.Font("neodgm.ttf", 36)
-    font_small = pygame.font.Font("neodgm.ttf", 24)
+    font_large = pygame.font.Font("neodgm.ttf", 45)      # 큰 폰트
+    font_medium = pygame.font.Font("neodgm.ttf", 35)     # 중간 폰트
+    font_small = pygame.font.Font("neodgm.ttf", 25)      # 작은 폰트
+    font_tiny = pygame.font.Font("neodgm.ttf", 20)       # 아주 작은 폰트
+    print(f"✓ 창모드 폰트 로드 완료: 45, 35, 25, 20")
 except:
-    font_large = pygame.font.Font(None, 48)
-    font_medium = pygame.font.Font(None, 36)
-    font_small = pygame.font.Font(None, 24)
+    font_large = pygame.font.Font(None, 45)
+    font_medium = pygame.font.Font(None, 35)
+    font_small = pygame.font.Font(None, 25)
+    font_tiny = pygame.font.Font(None, 20)
+    print("✓ 기본 창모드 폰트 사용")
 
 # MediaPipe 초기화
 mp_face_mesh = mp.solutions.face_mesh
@@ -184,15 +235,12 @@ class GameState:
         self.heart_particles = []
         self.sparkle_particles = []
         
-        # 폰트 설정
-        try:
-            self.font_large = pygame.font.Font("neodgm.ttf", 48)
-            self.font_medium = pygame.font.Font("neodgm.ttf", 36)
-            self.font_small = pygame.font.Font("neodgm.ttf", 24)
-        except:
-            self.font_large = pygame.font.Font(None, 48)
-            self.font_medium = pygame.font.Font(None, 36)
-            self.font_small = pygame.font.Font(None, 24)
+        # 폰트 설정 (전역 변수 사용)
+        self.font_large = font_large
+        self.font_medium = font_medium
+        self.font_small = font_small
+        self.font_tiny = font_tiny
+        print(f"✓ GameState 폰트 설정 완료")
         
     def spawn_food(self):
         # 더 다양한 스폰 위치 (작은 화면에 맞게 조정)
@@ -351,43 +399,50 @@ class GameState:
             pygame.draw.line(screen, color, (x + size//2, y - size//2), (x - size//2, y + size//2), 1)
                     
     def draw_ui(self, screen):
-        """아기자기한 UI 그리기"""
+        """480x640 창모드 최적화 UI 그리기"""
         # 반투명 배경 오버레이 (상단)
-        overlay = pygame.Surface((SCREEN_WIDTH, 150))
+        overlay_height = 140
+        overlay = pygame.Surface((SCREEN_WIDTH, overlay_height))
         overlay.set_alpha(180)
         overlay.fill((250, 230, 255))  # 파스텔 보라
         screen.blit(overlay, (0, 0))
         
-        # 게임 제목 (폰트 크기 줄임)
-        title_text = self.font_medium.render("음식 먹기 게임", True, (150, 100, 200))
-        title_rect = title_text.get_rect(center=(SCREEN_WIDTH//2, 30))
+        # 게임 제목
+        title_text = self.font_large.render("음식 먹기 게임", True, (150, 100, 200))
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH//2, 25))
         screen.blit(title_text, title_rect)
         
-        # 점수 표시 (파스텔 핑크 배경)
-        score_bg = pygame.Surface((200, 40))
+        # UI 요소 위치 계산 (창모드 최적화)
+        ui_y_start = 55
+        ui_spacing = 28
+        box_height = 25
+        margin = 10
+        
+        # 점수 표시
+        score_bg = pygame.Surface((SCREEN_WIDTH - margin * 2, box_height))
         score_bg.set_alpha(200)
         score_bg.fill(PASTEL_PINK)
-        screen.blit(score_bg, (20, 70))
-        score_text = self.font_medium.render(f"점수: {self.score}", True, (255, 100, 150))
-        screen.blit(score_text, (30, 80))
+        screen.blit(score_bg, (margin, ui_y_start))
+        score_text = self.font_small.render(f"점수: {self.score}", True, (255, 100, 150))
+        screen.blit(score_text, (margin + 5, ui_y_start + 3))
         
-        # 시간 표시 (파스텔 블루 배경)
-        time_bg = pygame.Surface((200, 40))
+        # 시간 표시
+        time_bg = pygame.Surface((SCREEN_WIDTH - margin * 2, box_height))
         time_bg.set_alpha(200)
         time_bg.fill(PASTEL_BLUE)
-        screen.blit(time_bg, (SCREEN_WIDTH - 220, 70))
-        time_text = self.font_medium.render(f"시간: {int(self.time_left)}", True, (100, 150, 255))
-        screen.blit(time_text, (SCREEN_WIDTH - 210, 80))
+        screen.blit(time_bg, (margin, ui_y_start + ui_spacing))
+        time_text = self.font_small.render(f"시간: {int(self.time_left)}", True, (100, 150, 255))
+        screen.blit(time_text, (margin + 5, ui_y_start + ui_spacing + 3))
         
-        # 입 상태 표시 (귀여운 아이콘)
-        mouth_status = "냠냠!" if self.mouth_open else "입을 동그랗게 벌려주세요"
+        # 입 상태 표시
+        mouth_status = "냠냠!" if self.mouth_open else "입을 벌려주세요"
         mouth_color = PASTEL_GREEN if self.mouth_open else PASTEL_PINK
-        mouth_bg = pygame.Surface((280, 30))  # 텍스트가 길어져서 박스 크기 증가
+        mouth_bg = pygame.Surface((SCREEN_WIDTH - margin * 2, box_height))
         mouth_bg.set_alpha(200)
         mouth_bg.fill(mouth_color)
-        screen.blit(mouth_bg, (20, 120))
-        mouth_text = self.font_small.render(mouth_status, True, (100, 100, 100))
-        screen.blit(mouth_text, (30, 125))
+        screen.blit(mouth_bg, (margin, ui_y_start + ui_spacing * 2))
+        mouth_text = self.font_tiny.render(mouth_status, True, (100, 100, 100))
+        screen.blit(mouth_text, (margin + 5, ui_y_start + ui_spacing * 2 + 5))
 
 def draw_hand_skeleton(screen, landmarks):
     """손 골격을 그리는 함수"""
@@ -544,14 +599,81 @@ def apply_beautify_filter(frame):
     
     return beautified
 
-def main():
-    # 환경변수에서 카메라 인덱스 가져오기
-    camera_index = int(os.environ.get('CAMERA_INDEX', '0'))
-    print(f"🎮 음식 먹기 게임 - 카메라 {camera_index} 사용 중...")
+def detect_usb_camera():
+    """USB 웹캠을 감지하고 우선적으로 사용할 카메라 인덱스를 반환"""
+    # Windows에서 USB 웹캠 감지
+    usb_camera_detected = False
+    try:
+        import subprocess
+        result = subprocess.run(['powershell', 
+                               'Get-CimInstance -ClassName Win32_PnPEntity | Where-Object { $_.Name -like "*C920*" -or $_.Name -like "*USB*camera*" } | Select-Object Name'], 
+                              capture_output=True, text=True, timeout=3)
+        camera_list = result.stdout
+        if 'C920' in camera_list or 'USB' in camera_list:
+            usb_camera_detected = True
+            print("🔌 USB 웹캠이 Windows에서 감지됨!")
+    except:
+        pass
     
-    cap = cv2.VideoCapture(camera_index)
+    # USB 웹캠이 감지되면 1번을 먼저 시도, 그렇지 않으면 0번 사용
+    if usb_camera_detected:
+        camera_index = 1
+        print(f"🎯 USB 웹캠 감지됨 - 카메라 {camera_index} 사용")
+    else:
+        camera_index = 0
+        print(f"📱 내장 카메라 사용 - 카메라 {camera_index} 사용")
+    
+    return camera_index
+
+def main():
+    # 가상환경 체크 및 자동 활성화
+    if not check_and_activate_venv():
+        print("❌ 가상환경 설정을 확인해주세요.")
+        input("Press Enter to exit...")
+        return
+    
+    # 환경변수에서 카메라 인덱스 가져오거나 USB 웹캠 자동 감지
+    if 'CAMERA_INDEX' in os.environ:
+        camera_index = int(os.environ.get('CAMERA_INDEX'))
+        print(f"🎮 음식 먹기 게임 - 환경변수로 카메라 {camera_index} 사용 중...")
+    else:
+        camera_index = detect_usb_camera()
+        print(f"🎮 음식 먹기 게임 - 자동 감지로 카메라 {camera_index} 사용 중...")
+    
+    print("📷 카메라 연결 중... (최대 3초 대기)")
+    
+    # Windows USB 웹캠을 위한 DirectShow 백엔드 사용
+    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+    
+    # DirectShow가 실패하면 기본 백엔드로 재시도
+    if not cap.isOpened():
+        print("⚠️  DirectShow 실패, 기본 백엔드로 재시도...")
+        cap = cv2.VideoCapture(camera_index)
+    
+    # 즉시 첫 프레임 시도
+    start_time = time.time()
+    success = False
+    
+    while time.time() - start_time < 3.0:  # 3초 타임아웃
+        if cap.isOpened():
+            ret, frame = cap.read()
+            if ret and frame is not None:
+                print("✅ 카메라 연결 성공!")
+                success = True
+                break
+        time.sleep(0.1)  # 100ms 대기
+    
+    if not success:
+        print("❌ 카메라 연결 실패 또는 타임아웃!")
+        cap.release()
+        return
+    
+    # 기본 설정
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    
+    print("🚀 게임 시작!")
+    
     clock = pygame.time.Clock()
     game_state = GameState()
     high_score = load_high_score()
@@ -654,33 +776,43 @@ def main():
         # 시작 화면
         if waiting_for_start:
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            overlay.set_alpha(120)  # 투명도를 더 낮춤 (180에서 120으로)
+            overlay.set_alpha(120)
             overlay.fill((250, 230, 255))  # 파스텔 보라 배경
             screen.blit(overlay, (0, 0))
             
-            # 제목 (폰트 크기 줄임)
-            title_text = game_state.font_medium.render("음식 먹기 게임", True, (150, 100, 200))
-            title_rect = title_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 150))
+            # 세로화면 레이아웃으로 UI 재배치
+            center_x = SCREEN_WIDTH // 2
+            
+            # 제목 (더 크게, 상단)
+            title_text = game_state.font_large.render("음식 먹기 게임", True, (150, 100, 200))
+            title_rect = title_text.get_rect(center=(center_x, SCREEN_HEIGHT//6))
             screen.blit(title_text, title_rect)
             
-            # 설명
-            instruction1 = game_state.font_medium.render("입을 벌리고 떨어지는 음식을 먹으세요!", True, (120, 80, 160))
-            instruction1_rect = instruction1.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 60))
+            # 설명들 (간격 증가, 폰트 크기 증가)
+            y_offset = SCREEN_HEIGHT//3
+            line_spacing = 80  # 간격 증가
+            
+            instruction1 = game_state.font_medium.render("입을 벌리고 떨어지는", True, (120, 80, 160))
+            instruction1_rect = instruction1.get_rect(center=(center_x, y_offset))
             screen.blit(instruction1, instruction1_rect)
             
-            instruction2 = game_state.font_medium.render("제한시간: 60초", True, (120, 80, 160))
-            instruction2_rect = instruction2.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 20))
+            instruction2 = game_state.font_medium.render("음식을 먹으세요!", True, (120, 80, 160))
+            instruction2_rect = instruction2.get_rect(center=(center_x, y_offset + line_spacing//2))
             screen.blit(instruction2, instruction2_rect)
             
-            # 하트 제스처 안내
+            instruction3 = game_state.font_medium.render("제한시간: 60초", True, (120, 80, 160))
+            instruction3_rect = instruction3.get_rect(center=(center_x, y_offset + line_spacing))
+            screen.blit(instruction3, instruction3_rect)
+            
+            # 하트 제스처 안내 (더 아래쪽)
             heart_text = game_state.font_medium.render("손으로 하트를 그려서 시작하세요!", True, (255, 100, 150))
-            heart_rect = heart_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 40))
+            heart_rect = heart_text.get_rect(center=(center_x, y_offset + line_spacing * 2))
             screen.blit(heart_text, heart_rect)
             
             # 하트 제스처 감지 표시
             if heart_detected:
                 detected_text = game_state.font_small.render("하트 감지!", True, (255, 200, 200))
-                detected_rect = detected_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 80))
+                detected_rect = detected_text.get_rect(center=(center_x, y_offset + line_spacing * 2.7))
                 screen.blit(detected_text, detected_rect)
             else:
                 # 손 감지 상태 표시
@@ -691,12 +823,12 @@ def main():
                     guide_text = game_state.font_small.render("양손을 화면에 보여주세요", True, (255, 255, 100))
                 else:
                     guide_text = game_state.font_small.render("손을 화면에 보여주세요", True, (255, 255, 100))
-                guide_rect = guide_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 80))
+                guide_rect = guide_text.get_rect(center=(center_x, y_offset + line_spacing * 2.7))
                 screen.blit(guide_text, guide_rect)
             
-            # 최고 점수
+            # 최고 점수 (하단)
             high_score_text = game_state.font_small.render(f"최고 점수: {high_score}", True, (150, 100, 200))
-            high_score_rect = high_score_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 120))
+            high_score_rect = high_score_text.get_rect(center=(center_x, SCREEN_HEIGHT - 100))
             screen.blit(high_score_text, high_score_rect)
             
         # 게임 진행 중
@@ -763,46 +895,53 @@ def main():
             overlay.fill((240, 230, 255))  # 파스텔 라벤더
             screen.blit(overlay, (0, 0))
             
-            # 게임 오버 배경 박스
-            result_box = pygame.Surface((600, 400))
+            # 세로화면 최적화된 게임 오버 UI
+            center_x = SCREEN_WIDTH // 2
+            
+            # 게임 오버 배경 박스 (세로화면에 맞게 크기 조정)
+            result_box = pygame.Surface((SCREEN_WIDTH - 80, SCREEN_HEIGHT // 2))  # 폭과 높이 조정
             result_box.set_alpha(220)
             result_box.fill((250, 240, 255))
-            result_box_rect = result_box.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2))
+            result_box_rect = result_box.get_rect(center=(center_x, SCREEN_HEIGHT//2))
             screen.blit(result_box, result_box_rect)
             
             # 테두리
-            pygame.draw.rect(screen, PASTEL_PURPLE, result_box_rect, 5)
+            pygame.draw.rect(screen, PASTEL_PURPLE, result_box_rect, 8)  # 두께 증가
+            
+            # 텍스트들 세로 배치
+            y_start = SCREEN_HEIGHT//2 - 200
+            line_spacing = 80  # 간격 증가
             
             game_over_text = game_state.font_large.render("게임 종료!", True, (150, 100, 200))
-            game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 120))
+            game_over_rect = game_over_text.get_rect(center=(center_x, y_start))
             screen.blit(game_over_text, game_over_rect)
             
             score_text = game_state.font_medium.render(f"최종 점수: {game_state.score}점", True, (255, 150, 200))
-            score_rect = score_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 60))
+            score_rect = score_text.get_rect(center=(center_x, y_start + line_spacing))
             screen.blit(score_text, score_rect)
             
             if new_record:
                 record_text = game_state.font_medium.render("새로운 기록!", True, (255, 200, 100))
-                record_rect = record_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 20))
+                record_rect = record_text.get_rect(center=(center_x, y_start + line_spacing * 2))
                 screen.blit(record_text, record_rect)
             
             high_score_text = game_state.font_small.render(f"최고 점수: {high_score}점", True, (150, 100, 200))
-            high_score_rect = high_score_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 20))
+            high_score_rect = high_score_text.get_rect(center=(center_x, y_start + line_spacing * 3))
             screen.blit(high_score_text, high_score_rect)
             
             # 하트 제스처 재시작 안내
             restart_text = game_state.font_medium.render("하트를 그려서 다시 시작하세요!", True, (255, 100, 150))
-            restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 80))
+            restart_rect = restart_text.get_rect(center=(center_x, y_start + line_spacing * 4))
             screen.blit(restart_text, restart_rect)
             
             # 하트 제스처 감지 표시
             if heart_detected:
                 detected_text = game_state.font_small.render("하트 감지! 재시작 중...", True, (255, 200, 200))
-                detected_rect = detected_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 120))
+                detected_rect = detected_text.get_rect(center=(center_x, y_start + line_spacing * 4.7))
                 screen.blit(detected_text, detected_rect)
             
-            exit_text = game_state.font_small.render("ESC: 종료", True, (150, 150, 150))
-            exit_rect = exit_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 160))
+            exit_text = game_state.font_tiny.render("ESC: 종료", True, (150, 150, 150))
+            exit_rect = exit_text.get_rect(center=(center_x, SCREEN_HEIGHT - 60))
             screen.blit(exit_text, exit_rect)
         pygame.display.flip()
         clock.tick(60)

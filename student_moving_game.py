@@ -6,8 +6,85 @@ import os
 import random
 import math
 import json
+import sys
+import subprocess
 import pygame
 from PIL import Image, ImageFont, ImageDraw
+
+def check_and_activate_venv():
+    """가상환경 체크 및 자동 활성화"""
+    print("🔍 가상환경 상태 확인 중...")
+    
+    # 현재 가상환경 체크
+    venv_path = os.path.join(os.getcwd(), ".venv")
+    is_venv_active = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+    
+    if is_venv_active:
+        print("✅ 가상환경이 이미 활성화되어 있습니다.")
+        return True
+    
+    if os.path.exists(venv_path):
+        print("🔄 가상환경을 찾았습니다. 자동으로 활성화를 시도합니다...")
+        
+        # Windows PowerShell에서 가상환경 활성화 후 게임 재실행
+        script_path = os.path.abspath(__file__)
+        activate_script = os.path.join(venv_path, "Scripts", "Activate.ps1")
+        
+        if os.path.exists(activate_script):
+            print("🚀 가상환경으로 게임을 재시작합니다...")
+            
+            # PowerShell 명령 구성
+            powershell_cmd = f'& "{activate_script}"; python "{script_path}"'
+            
+            try:
+                # 현재 프로세스 종료 후 가상환경에서 재시작
+                subprocess.Popen([
+                    "powershell", "-ExecutionPolicy", "Bypass", "-Command", powershell_cmd
+                ], cwd=os.getcwd())
+                
+                print("✅ 가상환경에서 게임을 시작했습니다. 현재 프로세스를 종료합니다.")
+                sys.exit(0)
+                
+            except Exception as e:
+                print(f"❌ 가상환경 활성화 실패: {e}")
+                print("⚠️ 수동으로 가상환경을 활성화해주세요:")
+                print(f"   & {activate_script}")
+                return False
+        else:
+            print(f"❌ 활성화 스크립트를 찾을 수 없습니다: {activate_script}")
+            return False
+    else:
+        print(f"❌ 가상환경을 찾을 수 없습니다: {venv_path}")
+        print("⚠️ 다음 명령어로 가상환경을 생성하세요:")
+        print("   python -m venv .venv")
+        return False
+    
+    return True
+
+def detect_usb_camera():
+    """USB 웹캠을 감지하고 우선적으로 사용할 카메라 인덱스를 반환"""
+    # Windows에서 USB 웹캠 감지
+    usb_camera_detected = False
+    try:
+        import subprocess
+        result = subprocess.run(['powershell', 'Get-PnpDevice -Class Camera'], 
+                              capture_output=True, text=True, timeout=2)
+        camera_list = result.stdout
+        if 'C920' in camera_list or 'USB' in camera_list:
+            usb_camera_detected = True
+            print("🔌 USB 웹캠이 Windows에서 감지됨!")
+    except:
+        pass
+    
+    # USB 웹캠이 감지되면 1번을 먼저 시도, 그렇지 않으면 0번 사용
+    if usb_camera_detected:
+        camera_index = 1
+        print(f"🎯 USB 웹캠 감지됨 - 카메라 {camera_index} 사용")
+    else:
+        camera_index = 0
+        print(f"📱 내장 카메라 사용 - 카메라 {camera_index} 사용")
+    
+    return camera_index
 
 class HandTrackingPixelPhotobooth:
     def __init__(self):
@@ -137,23 +214,40 @@ class HandTrackingPixelPhotobooth:
         self.reset_character_pool()
     
     def load_font(self):
-        """neodgm.ttf 폰트 로드"""
+        """전체화면 반응형 UI용 폰트 로드"""
         try:
             if os.path.exists(self.font_path):
-                self.font_small = ImageFont.truetype(self.font_path, 16)
-                self.font_medium = ImageFont.truetype(self.font_path, 24)
-                self.font_large = ImageFont.truetype(self.font_path, 32)
-                print(f"✓ {self.font_path} 폰트 로드 완료!")
+                # 화면 크기가 설정되기 전이므로 기본 크기로 초기화 후 나중에 업데이트
+                self.font_small = ImageFont.truetype(self.font_path, 28)
+                self.font_medium = ImageFont.truetype(self.font_path, 42)
+                self.font_large = ImageFont.truetype(self.font_path, 56)
+                self.font_xlarge = ImageFont.truetype(self.font_path, 72)
+                print(f"✓ {self.font_path} 폰트 로드 완료! (전체화면 반응형)")
             else:
                 print(f"[!] {self.font_path}를 찾을 수 없습니다. 기본 폰트를 사용합니다.")
                 self.font_small = ImageFont.load_default()
                 self.font_medium = ImageFont.load_default()
                 self.font_large = ImageFont.load_default()
+                self.font_xlarge = ImageFont.load_default()
         except Exception as e:
             print(f"[!] 폰트 로드 실패: {e}. 기본 폰트를 사용합니다.")
             self.font_small = ImageFont.load_default()
             self.font_medium = ImageFont.load_default()
             self.font_large = ImageFont.load_default()
+            self.font_xlarge = ImageFont.load_default()
+    
+    def update_font_sizes(self, ui_scale):
+        """UI 스케일에 따라 폰트 크기 업데이트"""
+        try:
+            if os.path.exists(self.font_path):
+                base_size = 28
+                self.font_small = ImageFont.truetype(self.font_path, int(base_size * ui_scale))
+                self.font_medium = ImageFont.truetype(self.font_path, int(base_size * 1.5 * ui_scale))
+                self.font_large = ImageFont.truetype(self.font_path, int(base_size * 2.0 * ui_scale))
+                self.font_xlarge = ImageFont.truetype(self.font_path, int(base_size * 2.6 * ui_scale))
+                print(f"✓ 폰트 크기 업데이트 완료! (스케일: {ui_scale:.2f})")
+        except Exception as e:
+            print(f"[!] 폰트 크기 업데이트 실패: {e}")
     
     def load_high_score(self):
         """최고 점수 로드"""
@@ -991,6 +1085,12 @@ class HandTrackingPixelPhotobooth:
     
     def run(self):
         """메인 실행"""
+        # 가상환경 체크 및 자동 활성화
+        if not check_and_activate_venv():
+            print("❌ 가상환경 설정을 확인해주세요.")
+            input("Press Enter to exit...")
+            return
+        
         print("\n친구들을 옮겨줘")
         print("=" * 60)
         print("*** 30초 안에 왼쪽 캐릭터들을 오른쪽으로 옮기세요!")
@@ -1002,41 +1102,52 @@ class HandTrackingPixelPhotobooth:
         print("*** 📸 S키: 스크린샷 저장, ESC: 종료")
         print("=" * 60)
         
-        # 환경변수에서 카메라 인덱스 가져오기
-        camera_index = int(os.environ.get('CAMERA_INDEX', '0'))
-        print(f"🎮 캐릭터 옮기기 게임 - 카메라 {camera_index} 사용 중...")
+        # 환경변수에서 카메라 인덱스 가져오거나 USB 웹캠 자동 감지
+        if 'CAMERA_INDEX' in os.environ:
+            camera_index = int(os.environ.get('CAMERA_INDEX'))
+            print(f"🎮 캐릭터 옮기기 게임 - 환경변수로 카메라 {camera_index} 사용 중...")
+        else:
+            camera_index = detect_usb_camera()
+            print(f"🎮 캐릭터 옮기기 게임 - 자동 감지로 카메라 {camera_index} 사용 중...")
         
-        cap = cv2.VideoCapture(camera_index)
-        if not cap.isOpened():
-            print("[X] 웹캠을 열 수 없습니다!")
-            return
+        print("📷 카메라 초기화 중...")
         
+        # 카메라 초기화 최적화
+        cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)  # DirectShow 백엔드 명시적 사용
+        
+        # 빠른 초기화를 위한 설정
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 버퍼 크기 최소화
+        cap.set(cv2.CAP_PROP_FPS, 30)  # FPS 설정
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        print("✓ 웹캠 초기화 완료!")
         
-        # 반응형 창 크기 설정
-        import tkinter as tk
-        try:
-            root = tk.Tk()
-            screen_width = root.winfo_screenwidth()
-            screen_height = root.winfo_screenheight()
-            root.destroy()
+        # 카메라 연결 확인
+        if not cap.isOpened():
+            print("⚠️ 기본 백엔드로 재시도...")
+            cap = cv2.VideoCapture(camera_index)  # 기본 백엔드로 재시도
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             
-            # 화면 비율에 따라 창 크기 조정
-            if screen_height > screen_width:  # 세로화면
-                window_width = min(int(screen_width * 0.9), 600)
-                window_height = min(int(screen_height * 0.7), 800)
-            else:  # 가로화면
-                window_width = min(int(screen_width * 0.7), 900)
-                window_height = min(int(screen_height * 0.8), 700)
-            
-            cv2.namedWindow('친구들을 옮겨줘', cv2.WINDOW_NORMAL)
-            cv2.resizeWindow('친구들을 옮겨줘', window_width, window_height)
-            print(f"✓ 반응형 창 크기 설정: {window_width}x{window_height}")
-        except:
-            cv2.namedWindow('친구들을 옮겨줘', cv2.WINDOW_NORMAL)
-            print("✓ 기본 창 크기로 설정")
+            if not cap.isOpened():
+                print("❌ 카메라를 열 수 없습니다!")
+                return
+        
+        print("✅ 카메라 초기화 완료!")
+        
+        # 창모드 600x800 크기로 설정
+        window_width = 600
+        window_height = 800
+        
+        cv2.namedWindow('STUDENT MOVING GAME', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('STUDENT MOVING GAME', window_width, window_height)
+        print(f"✓ 창모드 설정: {window_width}x{window_height}")
+        
+        # UI 스케일링 팩터 (창모드 최적화)
+        self.ui_scale = 0.75  # 600x800에 맞춘 고정 스케일
+        print(f"✓ UI 스케일링 팩터: {self.ui_scale}")
+        
+        # 폰트 크기 업데이트
+        self.update_font_sizes(self.ui_scale)
         
         particles_enabled = True
         
@@ -1068,7 +1179,7 @@ class HandTrackingPixelPhotobooth:
                 # UI 그리기
                 self.draw_ui(frame)
                 
-                cv2.imshow('친구들을 옮겨줘', frame)
+                cv2.imshow('STUDENT MOVING GAME', frame)
                 
                 key = cv2.waitKey(1) & 0xFF
                 if key == 27:  # ESC - 종료
