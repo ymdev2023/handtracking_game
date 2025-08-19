@@ -10,28 +10,7 @@ import sys
 import subprocess
 import numpy as np
 from math import sqrt
-
-# MediaPipe 로그 레벨 설정 (경고 메시지 숨기기)
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import logging
-logging.getLogger('mediapipe').setLevel(logging.ERROR)
-logging.getLogger('absl').setLevel(logging.ERROR)
-
-# PIL/Pillow import with fallback
-try:
-    from PIL import Image, ImageFont, ImageDraw
-    PIL_AVAILABLE = True
-except ImportError:
-    print("⚠️ PIL/Pillow가 설치되지 않았습니다. 폰트 기능이 제한될 수 있습니다.")
-    PIL_AVAILABLE = False
-
-# 카메라 유틸리티 import
-try:
-    from camera_utils import CameraManager
-    CAMERA_UTILS_AVAILABLE = True
-except ImportError:
-    print("⚠️ camera_utils를 찾을 수 없습니다. 기본 카메라 초기화를 사용합니다.")
-    CAMERA_UTILS_AVAILABLE = False
+from PIL import Image, ImageFont, ImageDraw
 
 def check_and_activate_venv():
     """가상환경 체크 및 자동 활성화"""
@@ -128,7 +107,6 @@ try:
 except:
     coin_sound = None
 
-<<<<<<< HEAD
 # 화면 설정
 # 화면 설정 (창모드 600x800)
 SCREEN_WIDTH = 600
@@ -136,14 +114,6 @@ SCREEN_HEIGHT = 800
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("INTERACTIVE GAME")
-=======
-# 화면 설정 (전체화면)
-info = pygame.display.Info()
-SCREEN_WIDTH = info.current_w
-SCREEN_HEIGHT = info.current_h
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
-pygame.display.set_caption("음식 먹기 게임 (ESC: 종료, F11: 전체화면 토글)")
->>>>>>> 18a0931af64b9e56da1d4f711010130e0d8079f6
 
 # 색상 정의 (파스텔 컬러 추가)
 WHITE = (255, 255, 255)
@@ -635,9 +605,8 @@ def detect_usb_camera():
     usb_camera_detected = False
     try:
         import subprocess
-        result = subprocess.run(['powershell', 
-                               'Get-CimInstance -ClassName Win32_PnPEntity | Where-Object { $_.Name -like "*C920*" -or $_.Name -like "*USB*camera*" } | Select-Object Name'], 
-                              capture_output=True, text=True, timeout=3)
+        result = subprocess.run(['powershell', 'Get-PnpDevice -Class Camera'], 
+                              capture_output=True, text=True, timeout=2)
         camera_list = result.stdout
         if 'C920' in camera_list or 'USB' in camera_list:
             usb_camera_detected = True
@@ -656,7 +625,6 @@ def detect_usb_camera():
     return camera_index
 
 def main():
-<<<<<<< HEAD
     # 가상환경 체크 및 자동 활성화
     if not check_and_activate_venv():
         print("❌ 가상환경 설정을 확인해주세요.")
@@ -671,55 +639,33 @@ def main():
         camera_index = detect_usb_camera()
         print(f"🎮 음식 먹기 게임 - 자동 감지로 카메라 {camera_index} 사용 중...")
     
-    print("📷 카메라 연결 중... (최대 3초 대기)")
+    print("📷 카메라 연결 중...")
     
-    # Windows USB 웹캠을 위한 DirectShow 백엔드 사용
-    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
+    # 카메라 초기화 최적화 (student_moving_game 방식 적용)
+    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)  # DirectShow 백엔드 명시적 사용
     
-    # DirectShow가 실패하면 기본 백엔드로 재시도
-    if not cap.isOpened():
-        print("⚠️  DirectShow 실패, 기본 백엔드로 재시도...")
-        cap = cv2.VideoCapture(camera_index)
-    
-    # 즉시 첫 프레임 시도
-    start_time = time.time()
-    success = False
-    
-    while time.time() - start_time < 3.0:  # 3초 타임아웃
-        if cap.isOpened():
-            ret, frame = cap.read()
-            if ret and frame is not None:
-                print("✅ 카메라 연결 성공!")
-                success = True
-                break
-        time.sleep(0.1)  # 100ms 대기
-    
-    if not success:
-        print("❌ 카메라 연결 실패 또는 타임아웃!")
-        cap.release()
-        return
-    
-    # 기본 설정
+    # 빠른 초기화를 위한 설정
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 버퍼 크기 최소화
+    cap.set(cv2.CAP_PROP_FPS, 30)  # FPS 설정
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     
-    print("🚀 게임 시작!")
-    
-=======
-    # 고급 카메라 초기화 (Arducam 지원)
-    if CAMERA_UTILS_AVAILABLE:
-        camera_manager = CameraManager()
-        cap = camera_manager.initialize_camera()
-        if cap is None:
-            print("[X] 카메라를 초기화할 수 없습니다!")
-            return
-    else:
-        # 기본 카메라 초기화
-        cap = cv2.VideoCapture(0)
+    # 카메라 연결 확인
+    if not cap.isOpened():
+        print("⚠️ DirectShow 실패, 기본 백엔드로 재시도...")
+        cap = cv2.VideoCapture(camera_index)  # 기본 백엔드로 재시도
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         
->>>>>>> 18a0931af64b9e56da1d4f711010130e0d8079f6
+        if not cap.isOpened():
+            print("❌ 카메라를 열 수 없습니다!")
+            cap.release()
+            return
+    
+    print("✅ 카메라 연결 성공!")
+    
+    print("🚀 게임 시작!")
+    
     clock = pygame.time.Clock()
     game_state = GameState()
     high_score = load_high_score()
@@ -728,19 +674,13 @@ def main():
     # 게임 시작 화면
     waiting_for_start = True
     
-    try:
-        while True:
-            if CAMERA_UTILS_AVAILABLE:
-                frame = camera_manager.read_frame()
-                if frame is None:
-                    continue
-            else:
-                ret, frame = cap.read()
-                if not ret:
-                    continue
-                
-            # 프레임 좌우 반전
-            frame = cv2.flip(frame, 1)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            continue
+            
+        # 프레임 좌우 반전
+        frame = cv2.flip(frame, 1)
         
         # beautify 필터 적용
         frame = apply_beautify_filter(frame)
@@ -797,9 +737,6 @@ def main():
                     cap.release()
                     pygame.quit()
                     return
-                elif event.key == pygame.K_F11:
-                    # 전체화면 토글
-                    pygame.display.toggle_fullscreen()
         
         # 하트 제스처로 게임 상태 제어
         current_time = pygame.time.get_ticks() / 1000.0
@@ -1000,21 +937,6 @@ def main():
             screen.blit(exit_text, exit_rect)
         pygame.display.flip()
         clock.tick(60)
-        
-    except KeyboardInterrupt:
-        print("\n게임이 중단되었습니다.")
-    except Exception as e:
-        print(f"오류 발생: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        if CAMERA_UTILS_AVAILABLE and 'camera_manager' in locals():
-            camera_manager.release()
-        elif 'cap' in locals():
-            cap.release()
-        cv2.destroyAllWindows()
-        pygame.quit()
-        print("게임 종료")
 
 if __name__ == "__main__":
     main()
