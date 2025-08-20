@@ -66,6 +66,18 @@ def check_and_activate_venv():
 pygame.init()
 pygame.mixer.init()
 
+# 배경음악 로드 및 재생
+try:
+    if os.path.exists("food-bgm.mp3"):
+        pygame.mixer.music.load("food-bgm.mp3")
+        pygame.mixer.music.set_volume(0.3)  # 효과음보다 작은 볼륨 (30%)
+        pygame.mixer.music.play(-1)  # 무한 반복
+        print("✓ 배경음악 로드 완료: food-bgm.mp3")
+    else:
+        print("⚠️ 배경음악 파일을 찾을 수 없습니다: food-bgm.mp3")
+except Exception as e:
+    print(f"[!] 배경음악 로드 실패: {e}")
+
 # 효과음 생성 (coin-sfx 스타일)
 def create_coin_sound():
     """coin-sfx 스타일의 효과음 생성"""
@@ -730,11 +742,13 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 cap.release()
+                pygame.mixer.music.stop()  # 배경음악 정지
                 pygame.quit()
                 return
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     cap.release()
+                    pygame.mixer.music.stop()  # 배경음악 정지
                     pygame.quit()
                     return
         
@@ -746,12 +760,28 @@ def main():
                 waiting_for_start = False
                 game_state.game_started = True
                 print("하트 제스처로 게임 시작!")
+                # 배경음악 재시작 (음소거됐을 수도 있으므로)
+                try:
+                    if os.path.exists("food-bgm.mp3"):
+                        pygame.mixer.music.load("food-bgm.mp3")
+                        pygame.mixer.music.set_volume(0.3)
+                        pygame.mixer.music.play(-1)
+                except:
+                    pass
             elif game_state.game_over:
                 # 게임 재시작
                 game_state = GameState()
                 game_state.game_started = True
                 new_record = False
                 print("하트 제스처로 게임 재시작!")
+                # 배경음악 재시작
+                try:
+                    if os.path.exists("food-bgm.mp3"):
+                        pygame.mixer.music.load("food-bgm.mp3")
+                        pygame.mixer.music.set_volume(0.3)
+                        pygame.mixer.music.play(-1)
+                except:
+                    pass
         
         screen.fill(BLACK)
         

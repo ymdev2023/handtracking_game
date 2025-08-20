@@ -91,7 +91,7 @@ class HandTrackingPixelPhotobooth:
         """핸드 트래킹 픽셀 캐릭터 포토부스"""
         print("< 3 Hand Tracking Pixel Photobooth 초기화!")
         
-        # Pygame 초기화 (효과음용)
+        # Pygame 초기화 (효과음 및 배경음악용)
         try:
             pygame.mixer.init()
             # confirmbeep-sfx.wav 로드
@@ -99,6 +99,16 @@ class HandTrackingPixelPhotobooth:
                 self.confirm_sound = pygame.mixer.Sound("confirmbeep-sfx.wav")
             else:
                 self.confirm_sound = None
+            
+            # 배경음악 로드 및 재생
+            if os.path.exists("student-bgm.mp3"):
+                pygame.mixer.music.load("student-bgm.mp3")
+                pygame.mixer.music.set_volume(0.3)  # 효과음보다 작은 볼륨 (30%)
+                pygame.mixer.music.play(-1)  # 무한 반복
+                print("✓ 배경음악 로드 완료: student-bgm.mp3")
+            else:
+                print("⚠️ 배경음악 파일을 찾을 수 없습니다: student-bgm.mp3")
+            
             print("✓ Pygame mixer 초기화 완료!")
         except Exception as e:
             print(f"[!] Pygame 초기화 실패: {e}")
@@ -1082,6 +1092,15 @@ class HandTrackingPixelPhotobooth:
         self.drag_mode = False
         self._is_new_record = False
         
+        # 배경음악 재시작
+        try:
+            if os.path.exists("student-bgm.mp3"):
+                pygame.mixer.music.load("student-bgm.mp3")
+                pygame.mixer.music.set_volume(0.3)
+                pygame.mixer.music.play(-1)
+        except:
+            pass
+        
         # 캐릭터 풀 리셋 (새 게임에서 모든 캐릭터 다시 사용 가능)
         self.reset_character_pool()
         print("30초 친구들 옮기기 게임 시작!")
@@ -1216,6 +1235,12 @@ class HandTrackingPixelPhotobooth:
             import traceback
             traceback.print_exc()
         finally:
+            # 배경음악 정지
+            try:
+                pygame.mixer.music.stop()
+                print("✓ 배경음악 정지")
+            except:
+                pass
             cap.release()
             cv2.destroyAllWindows()
             print("\n< 3 Hand Tracking Pixel Photobooth 종료!")
