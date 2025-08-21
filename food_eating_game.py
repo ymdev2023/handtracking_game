@@ -227,7 +227,7 @@ class Food:
 class GameState:
     def __init__(self):
         self.score = 0
-        self.time_left = 60  # 60초 게임
+        self.time_left = 30  # 30초 게임
         self.game_over = False
         self.game_started = False
         self.waiting_for_heart = True  # 하트 감지 대기 상태
@@ -558,7 +558,7 @@ def detect_heart_gesture(left_hand, right_hand):
         satisfied_conditions = sum(heart_conditions)
         print(f"만족한 조건: {satisfied_conditions}/5")
         
-        return satisfied_conditions >= 3  # 5개 중 3개 이상 만족하면 하트로 인식 (더 관대)
+        return satisfied_conditions >= 3  # 5개 중 3개 이상 만족하면 하트로 인식 (60% 인식률 - 65%에 가까움)
         
     except Exception as e:
         print(f"하트 감지 오류: {e}")
@@ -773,6 +773,7 @@ def main():
                 game_state = GameState()
                 game_state.game_started = True
                 new_record = False
+                high_score = load_high_score()  # 최고 점수 다시 로드
                 print("하트 제스처로 게임 재시작!")
                 # 배경음악 재시작
                 try:
@@ -822,7 +823,7 @@ def main():
             instruction2_rect = instruction2.get_rect(center=(center_x, y_offset + line_spacing//2))
             screen.blit(instruction2, instruction2_rect)
             
-            instruction3 = game_state.font_medium.render("제한시간: 60초", True, (120, 80, 160))
+            instruction3 = game_state.font_medium.render("제한시간: 30초", True, (120, 80, 160))
             instruction3_rect = instruction3.get_rect(center=(center_x, y_offset + line_spacing))
             screen.blit(instruction3, instruction3_rect)
             
@@ -899,13 +900,14 @@ def main():
                 game_state.start_time = pygame.time.get_ticks()
             
             elapsed_time = (pygame.time.get_ticks() - game_state.start_time) / 1000.0  # 초 단위
-            game_state.time_left = max(0, 60 - elapsed_time)  # 60초에서 경과 시간 빼기
+            game_state.time_left = max(0, 30 - elapsed_time)  # 30초에서 경과 시간 빼기
             
             if game_state.time_left <= 0:
                 game_state.game_over = True
                 new_record = save_high_score(game_state.score)
                 if new_record:
-                    high_score = game_state.score
+                    high_score = game_state.score  # 새로운 최고 점수로 업데이트
+                    print(f"🎉 새로운 최고 점수! {game_state.score}점")
             
             # UI 그리기
             game_state.draw_ui(screen)

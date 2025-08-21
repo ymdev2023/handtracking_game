@@ -247,15 +247,22 @@ class HandTrackingPixelPhotobooth:
             self.font_xlarge = ImageFont.load_default()
     
     def update_font_sizes(self, ui_scale):
-        """UI 스케일에 따라 폰트 크기 업데이트"""
+        """UI 스케일에 따라 폰트 크기 업데이트 (food_eating_game.py와 동일)"""
         try:
             if os.path.exists(self.font_path):
-                base_size = 28
-                self.font_small = ImageFont.truetype(self.font_path, int(base_size * ui_scale))
-                self.font_medium = ImageFont.truetype(self.font_path, int(base_size * 1.5 * ui_scale))
-                self.font_large = ImageFont.truetype(self.font_path, int(base_size * 2.0 * ui_scale))
-                self.font_xlarge = ImageFont.truetype(self.font_path, int(base_size * 2.6 * ui_scale))
-                print(f"✓ 폰트 크기 업데이트 완료! (스케일: {ui_scale:.2f})")
+                # food_eating_game.py의 폰트 크기와 동일하게 설정
+                base_size = 16  # 기본 폰트 크기
+                self.font_small = ImageFont.truetype(self.font_path, int(base_size * 0.8))  # 13
+                self.font_medium = ImageFont.truetype(self.font_path, base_size)  # 16
+                self.font_large = ImageFont.truetype(self.font_path, int(base_size * 1.5))  # 24
+                self.font_xlarge = ImageFont.truetype(self.font_path, int(base_size * 2))  # 32
+                print(f"✓ 폰트 크기 업데이트: 기본 {base_size}px (food_eating_game.py와 동일)")
+            else:
+                # 기본 폰트 사용
+                self.font_small = ImageFont.load_default()
+                self.font_medium = ImageFont.load_default()
+                self.font_large = ImageFont.load_default()
+                self.font_xlarge = ImageFont.load_default()
         except Exception as e:
             print(f"[!] 폰트 크기 업데이트 실패: {e}")
     
@@ -559,7 +566,7 @@ class HandTrackingPixelPhotobooth:
             else:
                 self.heart_debug_info = f"하트: {satisfied_conditions}/8"
             
-            return satisfied_conditions >= 5  # 8개 중 5개 이상 만족하면 하트로 인식 (6에서 5로 완화)
+            return satisfied_conditions >= 5  # 8개 중 5개 이상 만족하면 하트로 인식 (65% 인식률)
             
         except Exception as e:
             print(f"하트 제스처 감지 오류: {e}")
@@ -1161,16 +1168,20 @@ class HandTrackingPixelPhotobooth:
         
         print("✅ 카메라 초기화 완료!")
         
-        # 창모드 600x800 크기로 설정
-        window_width = 600
-        window_height = 800
+        # 화면 설정 (food_eating_game.py와 동일한 600x800 크기)
+        SCREEN_WIDTH = 600
+        SCREEN_HEIGHT = 800
         
+        # 창 생성 및 크기 설정 (food_eating_game.py 방식과 유사하게)
         cv2.namedWindow('STUDENT MOVING GAME', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('STUDENT MOVING GAME', window_width, window_height)
-        print(f"✓ 창모드 설정: {window_width}x{window_height}")
+        cv2.resizeWindow('STUDENT MOVING GAME', SCREEN_WIDTH, SCREEN_HEIGHT)
         
-        # UI 스케일링 팩터 (창모드 최적화)
-        self.ui_scale = 0.75  # 600x800에 맞춘 고정 스케일
+        # 창 위치 설정 (화면 중앙)
+        cv2.moveWindow('STUDENT MOVING GAME', 100, 50)
+        print(f"✓ 창모드 설정: {SCREEN_WIDTH}x{SCREEN_HEIGHT} (food_eating_game.py와 동일)")
+        
+        # UI 스케일링 팩터 (600x800에 맞춘 최적화)
+        self.ui_scale = 1.0  # food_eating_game.py와 동일한 스케일
         print(f"✓ UI 스케일링 팩터: {self.ui_scale}")
         
         # 폰트 크기 업데이트
@@ -1185,6 +1196,9 @@ class HandTrackingPixelPhotobooth:
                     break
                 
                 frame = cv2.flip(frame, 1)
+                
+                # 프레임을 food_eating_game.py와 동일한 600x800 크기로 리사이즈
+                frame = cv2.resize(frame, (SCREEN_WIDTH, SCREEN_HEIGHT))
                 frame_height, frame_width = frame.shape[:2]
                 
                 # 핸드 트래킹
